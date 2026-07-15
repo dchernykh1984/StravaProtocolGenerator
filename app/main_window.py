@@ -11,12 +11,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QDate, QThread, Signal
+from PySide6.QtCore import QDate, Qt, QThread, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
+    QCalendarWidget,
     QCheckBox,
     QComboBox,
-    QDateEdit,
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSpinBox,
     QTabWidget,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -89,31 +90,49 @@ def _segments_to_text(segments: list[SegmentConfig]) -> str:
     return "\n".join(lines)
 
 
-class DateField(QDateEdit):
-    """A calendar date picker that also represents an empty (open) collection bound.
+class DateField(QWidget):
+    """An ISO date entry: a free-text field with a calendar popup for convenience.
 
-    A stage window may be open on either side, so the minimum date doubles as "no
-    date": it shows a blank special value and round-trips to an empty ISO string, while
-    any real date round-trips as ``YYYY-MM-DD``.
+    Typing is primary, so any string is kept verbatim -- an empty open bound, a partial
+    date, or a full ``YYYY-MM-DD`` all survive losing focus (a plain ``QDateEdit`` reset
+    text it could not parse section-by-section). The calendar button just fills the
+    field with a chosen date.
     """
 
     _ISO = "yyyy-MM-dd"
-    _EMPTY = QDate(1900, 1, 1)
 
     def __init__(self, iso: str = "") -> None:
         super().__init__()
-        self.setDisplayFormat(self._ISO)
-        self.setCalendarPopup(True)
-        self.setMinimumDate(self._EMPTY)
-        self.setSpecialValueText(" ")
-        self.set_iso(iso)
+        row = QHBoxLayout(self)
+        row.setContentsMargins(0, 0, 0, 0)
+        self.edit = QLineEdit(iso)
+        self.edit.setPlaceholderText("YYYY-MM-DD")
+        button = QToolButton()
+        button.setArrowType(Qt.ArrowType.DownArrow)
+        button.clicked.connect(self._open_calendar)
+        row.addWidget(self.edit, stretch=1)
+        row.addWidget(button)
 
     def set_iso(self, iso: str) -> None:
-        parsed = QDate.fromString(iso, self._ISO)
-        self.setDate(parsed if parsed.isValid() else self._EMPTY)
+        self.edit.setText(iso)
 
     def iso(self) -> str:
-        return "" if self.date() == self._EMPTY else self.date().toString(self._ISO)
+        return self.edit.text().strip()
+
+    def _open_calendar(self) -> None:
+        calendar = QCalendarWidget()
+        calendar.setWindowFlags(Qt.WindowType.Popup)
+        current = QDate.fromString(self.iso(), self._ISO)
+        if current.isValid():
+            calendar.setSelectedDate(current)
+        calendar.clicked.connect(self._apply_date)
+        calendar.clicked.connect(calendar.close)
+        calendar.move(self.edit.mapToGlobal(self.edit.rect().bottomLeft()))
+        calendar.show()
+        self._calendar = calendar
+
+    def _apply_date(self, chosen: QDate) -> None:
+        self.edit.setText(chosen.toString(self._ISO))
 
 
 class FilePicker(QWidget):
