@@ -1,0 +1,9 @@
+# Line-ending policy.
+#
+# Store every text file with LF in the repository and check it out with LF on
+# every platform (including Windows), overriding each machine's core.autocrlf.
+# Without this, Windows rewrites the whole tree to CRLF on checkout, so `git
+# status` shows every file modified and the mixed-line-ending pre-commit hook
+# (configured with --fix=lf) keeps fighting the checkout. `text=auto` lets Git
+# auto-detect which files are text.
+* text=auto eol=lf
