@@ -49,6 +49,55 @@ def test_combine_times() -> None:
     assert combine_times([]) is None
 
 
+def test_stage_entry_carries_profile_and_effort_links() -> None:
+    row = LeaderboardRow(
+        athlete_name="Ivan Petrov",
+        athlete_id="111",
+        raw_result="",
+        result_seconds=300.0,
+        athlete_url="https://www.strava.com/athletes/111",
+        attempt_url="https://www.strava.com/activities/900/segments/1",
+    )
+    match = MatchResult(results={1: row})
+    entry = build_stage_entries([match], [_participant(1, "Ivan Petrov")])[0]
+    assert entry.competitor.athlete_url == "https://www.strava.com/athletes/111"
+    assert entry.result_url == "https://www.strava.com/activities/900/segments/1"
+
+
+def test_registered_without_a_row_links_profile_from_registration() -> None:
+    participant = Participant(
+        id=1,
+        first_name="A",
+        last_name="B",
+        participant_names="A B",
+        category_id=1,
+        category_name="A",
+        additional_info="https://www.strava.com/athletes/777",
+    )
+    entry = build_stage_entries([MatchResult()], [participant])[0]
+    assert entry.competitor.athlete_url == "https://www.strava.com/athletes/777"
+    assert entry.result_url == ""
+
+
+def test_unregistered_competitor_carries_profile_link() -> None:
+    row = LeaderboardRow(
+        athlete_name="Guest",
+        athlete_id="999",
+        raw_result="",
+        result_seconds=250.0,
+        athlete_url="https://www.strava.com/athletes/999",
+    )
+    entry = build_stage_entries([MatchResult(unregistered=[row])], [])[0]
+    assert entry.competitor.athlete_url == "https://www.strava.com/athletes/999"
+
+
+def test_cup_entry_carries_per_stage_effort_links() -> None:
+    e1 = StageEntry(_comp("Ivan"), [300.0], 300.0, result_url="u1")
+    e2 = StageEntry(_comp("Ivan"), [200.0], 200.0, result_url="u2")
+    cup = build_cup_entries([[e1], [e2]])
+    assert cup[0].stage_urls == ["u1", "u2"]
+
+
 def test_build_stage_entries_registered_all_appear() -> None:
     participants = [_participant(1, "Ivan Petrov"), _participant(2, "Anna Ivanova")]
     match = MatchResult(results={1: _row("Ivan Petrov", "111", 300.0)}, unregistered=[])

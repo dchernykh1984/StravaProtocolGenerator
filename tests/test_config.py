@@ -19,6 +19,7 @@ def _rich_config() -> AppConfig:
         roster_token="roster-tok",
         unregistered_group_name="Others",
         decimals=1,
+        show_strava_links=True,
         template_file="template.html",
         output_dir="out",
         stages=[

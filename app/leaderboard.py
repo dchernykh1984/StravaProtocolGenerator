@@ -36,6 +36,11 @@ def build_segment_url(segment_id: str, filters: dict[str, str] | None = None) ->
     return _SEGMENT_URL.format(segment_id=segment_id) + "?" + urlencode(query)
 
 
+def build_athlete_url(strava_id: str) -> str:
+    """Return an athlete's Strava profile URL from their numeric id."""
+    return f"{_BASE_URL}/athletes/{strava_id}"
+
+
 def _abs_url(href: str) -> str:
     return _BASE_URL + href if href.startswith("/") else href
 

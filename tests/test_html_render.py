@@ -23,6 +23,64 @@ def _cup_group(name: str) -> tuple[str, list[Ranked]]:
     return name, [Ranked(1, a)]
 
 
+def test_stage_protocol_renders_links_when_enabled() -> None:
+    entry = StageEntry(
+        Competitor(
+            "p:1",
+            "Ivan Petrov",
+            "A",
+            True,
+            athlete_url="https://strava.test/athletes/1",
+        ),
+        [300.0],
+        300.0,
+        result_url="https://strava.test/activities/9",
+    )
+    out = render_stage_protocol(
+        "T", [("A", [Ranked(1, entry)])], columns=StageColumns(show_links=True)
+    )
+    assert '<a href="https://strava.test/athletes/1"' in out
+    assert '<a href="https://strava.test/activities/9"' in out
+
+
+def test_stage_protocol_omits_links_by_default() -> None:
+    name, ranked = _stage_group("A")
+    assert "<a href" not in render_stage_protocol("T", [(name, ranked)])
+
+
+def test_cup_protocol_renders_stage_links_when_enabled() -> None:
+    entry = CupEntry(
+        Competitor("p:1", "Ivan", "A", True, athlete_url="https://strava.test/a/1"),
+        [300.0, 200.0],
+        500.0,
+        stage_urls=["https://strava.test/e/1", ""],
+    )
+    out = render_cup_protocol(
+        "T",
+        [("A", [Ranked(1, entry)])],
+        ["D1", "D2"],
+        columns=CupColumns(show_links=True),
+    )
+    assert '<a href="https://strava.test/a/1"' in out
+    assert '<a href="https://strava.test/e/1"' in out
+
+
+def test_cup_protocol_missing_stage_url_is_a_plain_cell() -> None:
+    entry = CupEntry(
+        Competitor("p:1", "Ivan", "A", True, athlete_url="u"),
+        [300.0, 200.0],
+        500.0,
+        stage_urls=["only-first"],  # shorter than stage_values -> second has no link
+    )
+    out = render_cup_protocol(
+        "T",
+        [("A", [Ranked(1, entry)])],
+        ["D1", "D2"],
+        columns=CupColumns(show_links=True),
+    )
+    assert '<a href="only-first"' in out
+
+
 def test_load_template_reads_11_lines(tmp_path) -> None:
     lines = [f"line{i}" for i in range(11)]
     path = tmp_path / "template.html"

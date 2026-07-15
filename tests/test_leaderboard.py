@@ -3,6 +3,7 @@
 from datetime import date
 
 from app.leaderboard import (
+    build_athlete_url,
     build_segment_url,
     filter_by_date,
     has_next_page,
@@ -36,6 +37,10 @@ _LEADERBOARD = """
   </table>
 </div>
 """
+
+
+def test_build_athlete_url_from_id() -> None:
+    assert build_athlete_url("12345") == "https://www.strava.com/athletes/12345"
 
 
 def test_has_results_table_detects_the_table() -> None:
