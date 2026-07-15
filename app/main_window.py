@@ -305,16 +305,25 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
         root = QVBoxLayout(central)
 
+        # Globals and the cup share one two-column row above the stages so the window
+        # stays short enough to fit on screen.
         self._globals = self._build_globals()
-        root.addLayout(self._globals_layout)
+        top = QHBoxLayout()
+        left = QVBoxLayout()
+        left.addLayout(self._globals_layout)
+        left.addStretch(1)
+        right = QVBoxLayout()
+        right.addWidget(QLabel("Cup"))
+        self._cup = CupPanel(CupConfig())
+        right.addWidget(self._cup)
+        right.addStretch(1)
+        top.addLayout(left, stretch=1)
+        top.addLayout(right, stretch=1)
+        root.addLayout(top)
 
         self._tabs = QTabWidget()
         root.addWidget(self._tabs, stretch=1)
         root.addLayout(self._build_stage_buttons())
-
-        root.addWidget(QLabel("Cup"))
-        self._cup = CupPanel(CupConfig())
-        root.addWidget(self._cup)
 
         root.addLayout(self._build_action_buttons())
 

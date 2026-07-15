@@ -17,7 +17,7 @@ from PySide6.QtGui import QCloseEvent, QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from app import main_window as mw
-from app.config import CupConfig, StageConfig
+from app.config import AppConfig, CupConfig, StageConfig
 
 _app = QApplication.instance() or QApplication([])
 
@@ -83,6 +83,30 @@ def test_stage_empty_dates_round_trip_to_empty_string() -> None:
     config = tab.to_config()
     assert config.date_from == ""
     assert config.date_to == ""
+
+
+def test_two_column_top_keeps_globals_and_cup_fields() -> None:
+    window = mw.MainWindow()
+    assert isinstance(window._cup, mw.CupPanel)
+    config = AppConfig(
+        site_url="https://s.test",
+        strava_login="rider",
+        roster_token="rt",
+        unregistered_group_name="Guests",
+        template_file="t.html",
+        output_dir="out",
+        cup=CupConfig(name="Grand Cup", token="cup-token"),
+    )
+    window.apply_config(config)
+    collected = window.collect_config()
+    assert collected.site_url == "https://s.test"
+    assert collected.strava_login == "rider"
+    assert collected.roster_token == "rt"
+    assert collected.unregistered_group_name == "Guests"
+    assert collected.template_file == "t.html"
+    assert collected.output_dir == "out"
+    assert collected.cup.name == "Grand Cup"
+    assert collected.cup.token == "cup-token"
 
 
 def test_stage_file_fields_are_file_pickers() -> None:
