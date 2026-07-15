@@ -104,6 +104,28 @@ def parse_leaderboard_html(html: str) -> list[LeaderboardRow]:
     return result
 
 
+def has_results_table(html: str) -> bool:
+    """Whether the page carries a leaderboard results table at all.
+
+    Distinguishes a real leaderboard (server-rendered table, even when empty) from a
+    page whose table would only appear after JavaScript runs, which plain HTTP cannot
+    do -- the caller uses this to warn instead of silently scraping nothing.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    container = soup.find(id="results") or soup
+    return isinstance(container, Tag) and isinstance(container.find("table"), Tag)
+
+
+def has_next_page(html: str) -> bool:
+    """Whether an enabled 'next page' pagination control is present in ``html``."""
+    soup = BeautifulSoup(html, "html.parser")
+    link = soup.find("li", class_="next_page")
+    if not isinstance(link, Tag):
+        return False
+    classes = link.get("class") or []
+    return "disabled" not in classes
+
+
 def parse_leaderboard_date(text: str, today: date | None = None) -> date | None:
     """Parse a leaderboard date cell to a ``date``; ``None`` when it cannot be read.
 

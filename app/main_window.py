@@ -42,6 +42,7 @@ from app.config import (
     SegmentConfig,
     StageConfig,
 )
+from app.http_browser import HttpBrowser, StravaAuthError
 from app.pipeline import GenerationResult, generate
 from app.scoring import CupRule, StageRule
 from app.selenium_driver import SeleniumBrowser
@@ -179,27 +180,49 @@ class _GenerateWorker(QThread):
 
     done = Signal(object)
     failed = Signal(str)
+    cookies_refreshed = Signal(object)
 
     def __init__(self, config: AppConfig) -> None:
         super().__init__()
         self._config = config
 
     def run(self) -> None:
-        browser = None
         try:
-            browser = SeleniumBrowser()
-            browser.login(self._config.strava_login, self._config.strava_password)
             client = SiteApiClient(self._config.site_url)
-            # Each protocol's own action (Nothing/Upload/Delete) decides what reaches
-            # the site, so generation always runs the publish path.
-            result = generate(self._config, browser, client, publish=True)
+            result = self._generate_authenticated(client)
             save_raw_data(result.raw_snapshot, HISTORY_DIR)
             self.done.emit(result)
         except Exception as exc:  # report any failure back to the UI log
             self.failed.emit(str(exc))
+
+    def _generate_authenticated(self, client: SiteApiClient) -> GenerationResult:
+        """Scrape with saved cookies; log in once (and re-cache) only when needed.
+
+        Each protocol's own action (Nothing/Upload/Delete) decides what reaches the
+        site, so generation always runs the publish path.
+        """
+        if self._config.strava_cookies:
+            try:
+                browser = HttpBrowser(self._config.strava_cookies)
+                return generate(self._config, browser, client, publish=True)
+            except StravaAuthError:
+                pass  # session expired -> log in again and refresh the cookies below
+        browser = self._login_and_capture()
+        return generate(self._config, browser, client, publish=True)
+
+    def _login_and_capture(self) -> HttpBrowser:
+        """Log in with a real browser once, then scrape over its cookies via HTTP.
+
+        A failed login raises and caches nothing, so the next run just tries again.
+        """
+        selenium = SeleniumBrowser()
+        try:
+            selenium.login(self._config.strava_login, self._config.strava_password)
+            cookies = selenium.cookies()
         finally:
-            if browser is not None:
-                browser.quit()
+            selenium.quit()
+        self.cookies_refreshed.emit(cookies)
+        return HttpBrowser(cookies)
 
 
 class StageTab(QWidget):
@@ -359,6 +382,7 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon(ICON_PATH))
         self._worker: _GenerateWorker | None = None
         self._timer: QTimer | None = None
+        self._strava_cookies: list[dict[str, Any]] = []
         central = QWidget()
         self.setCentralWidget(central)
         root = QVBoxLayout(central)
@@ -461,6 +485,7 @@ class MainWindow(QMainWindow):
             site_url=self._globals["site_url"].text().strip(),
             strava_login=self._globals["strava_login"].text().strip(),
             strava_password=self._globals["strava_password"].text(),
+            strava_cookies=self._strava_cookies,
             roster_token=self._globals["roster_token"].text().strip(),
             unregistered_group_name=self._globals["unregistered_group_name"].text(),
             decimals=self._decimals.value(),
@@ -471,6 +496,7 @@ class MainWindow(QMainWindow):
         )
 
     def apply_config(self, config: AppConfig) -> None:
+        self._strava_cookies = config.strava_cookies
         self._globals["site_url"].setText(config.site_url)
         self._globals["strava_login"].setText(config.strava_login)
         self._globals["strava_password"].setText(config.strava_password)
@@ -547,7 +573,13 @@ class MainWindow(QMainWindow):
         self._worker = _GenerateWorker(config)
         self._worker.done.connect(self._on_generation_done)
         self._worker.failed.connect(self._on_generation_failed)
+        self._worker.cookies_refreshed.connect(self._on_cookies_refreshed)
         self._worker.start()
+
+    def _on_cookies_refreshed(self, cookies: Any) -> None:
+        """Persist a freshly captured Strava session so later runs skip the login."""
+        self._strava_cookies = cookies
+        save_config(self.collect_config(), DATA_DIR, HISTORY_DIR)
 
     def _on_refresh_toggled(self, checked: bool) -> None:
         """Start or stop periodic regeneration at the configured interval."""

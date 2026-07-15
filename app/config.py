@@ -188,6 +188,7 @@ class AppConfig:
     site_url: str = ""
     strava_login: str = ""
     strava_password: str = ""
+    strava_cookies: list[dict[str, Any]] = field(default_factory=list)
     roster_token: str = ""
     unregistered_group_name: str = "Not registered"
     decimals: int = 0
@@ -205,6 +206,7 @@ class AppConfig:
             "site_url": self.site_url,
             "strava_login": self.strava_login,
             "strava_password": self.strava_password if include_secrets else "",
+            "strava_cookies": self.strava_cookies if include_secrets else [],
             "roster_token": self.roster_token,
             "unregistered_group_name": self.unregistered_group_name,
             "decimals": self.decimals,
@@ -223,6 +225,7 @@ class AppConfig:
             site_url=d("site_url"),
             strava_login=d("strava_login"),
             strava_password=d("strava_password"),
+            strava_cookies=list(data.get("strava_cookies", [])),
             roster_token=d("roster_token"),
             unregistered_group_name=d("unregistered_group_name"),
             decimals=d("decimals"),
