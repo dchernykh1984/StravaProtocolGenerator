@@ -233,6 +233,13 @@ def test_file_picker_browse_cancel_keeps_value(monkeypatch: pytest.MonkeyPatch) 
     assert picker.text() == "keep.html"
 
 
+def test_log_to_file_checkbox_round_trips() -> None:
+    window = mw.MainWindow()
+    window.apply_config(AppConfig(log_to_file=True, cup=CupConfig()))
+    assert window._log_to_file.isChecked()
+    assert window.collect_config().log_to_file is True
+
+
 def test_log_to_file_writes_only_when_checked(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
