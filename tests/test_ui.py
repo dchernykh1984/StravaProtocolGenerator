@@ -263,6 +263,17 @@ def test_single_generate_button_replaces_the_pair() -> None:
     assert "Generate locally" not in labels
 
 
+def test_auto_refresh_toggle_starts_and_stops_timer() -> None:
+    window = mw.MainWindow()
+    window._interval.setValue(5)
+    window._auto_refresh.setChecked(True)
+    assert window._timer is not None
+    assert window._timer.isActive()
+    assert window._timer.interval() == 5000
+    window._auto_refresh.setChecked(False)
+    assert not window._timer.isActive()
+
+
 def test_strava_password_is_shown_as_plain_text() -> None:
     window = mw.MainWindow()
     field = window._globals["strava_password"]
