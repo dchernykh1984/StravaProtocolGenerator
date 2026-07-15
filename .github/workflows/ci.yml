@@ -49,3 +49,16 @@ jobs:
         run: pip install commitizen==4.13.10
       - name: Check commit messages
         run: cz check --rev-range origin/main..HEAD
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          python-version: "3.14"
+      - name: Export dependencies
+        run: uv export --no-hashes --no-annotate --no-default-groups --no-emit-project -o requirements.txt
+      - name: Run pip-audit
+        run: uvx pip-audit -r requirements.txt
