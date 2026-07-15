@@ -2,6 +2,7 @@
 
 import json
 import urllib.error
+from typing import Any
 
 import pytest
 
@@ -19,23 +20,23 @@ class _FakeResp:
     def __enter__(self) -> _FakeResp:
         return self
 
-    def __exit__(self, *_: object) -> bool:
-        return False
+    def __exit__(self, *_: object) -> None:
+        return None
 
 
 class _FakeOpener:
-    def __init__(self, response: object) -> None:
+    def __init__(self, response: Any) -> None:
         self.response = response
-        self.requests: list[object] = []
+        self.requests: list[Any] = []
 
-    def __call__(self, request: object, timeout: float | None = None) -> object:
+    def __call__(self, request: Any, timeout: float | None = None) -> Any:
         self.requests.append(request)
         if isinstance(self.response, Exception):
             raise self.response
         return self.response
 
 
-def _client(response: object) -> tuple[SiteApiClient, _FakeOpener]:
+def _client(response: Any) -> tuple[SiteApiClient, _FakeOpener]:
     opener = _FakeOpener(response)
     return SiteApiClient("https://site.test/", opener=opener), opener
 
