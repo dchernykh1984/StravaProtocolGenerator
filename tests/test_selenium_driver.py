@@ -1,8 +1,8 @@
 """Tests for the Selenium login flow, driven by a fake WebDriver (no real browser).
 
-``selenium_driver`` is coverage-omitted (it normally needs Chrome), but the login logic
--- accept the cookie banner, then fill and submit -- is worth guarding, so a fake driver
-records the calls the flow makes.
+``selenium_driver`` is coverage-omitted (it normally needs Chrome), but Strava's
+multi-step, cookie-gated login is fiddly enough to be worth guarding, so a fake driver
+records the calls the flow makes at each step.
 """
 
 from __future__ import annotations
@@ -12,6 +12,13 @@ from typing import Any
 from selenium.webdriver.common.by import By
 
 from app.selenium_driver import SeleniumBrowser
+
+_COOKIE = (By.ID, "CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll")
+_EMAIL = (By.ID, "mobile-email")
+_EMAIL_SUBMIT = (By.ID, "mobile-login-button")
+_USE_PASSWORD = (By.CSS_SELECTOR, "[data-testid='use-password-cta'] button")
+_PASSWORD = (By.CSS_SELECTOR, "input[name='password'][type='password']")
+_PASSWORD_SUBMIT = (By.XPATH, "//button[normalize-space()='Log in']")
 
 
 class _FakeElement:
@@ -29,12 +36,14 @@ class _FakeElement:
     def click(self) -> None:
         self.clicked = True
 
+    def is_enabled(self) -> bool:
+        return True
+
 
 class _FakeDriver:
     def __init__(self, elements: dict[tuple[Any, str], list[_FakeElement]]) -> None:
         self._elements = elements
         self.visited: list[str] = []
-        self.scrolled: list[_FakeElement] = []
 
     def get(self, url: str) -> None:
         self.visited.append(url)
@@ -43,39 +52,48 @@ class _FakeDriver:
         return self._elements.get((by, selector), [])
 
     def execute_script(self, script: str, *args: Any) -> None:
-        self.scrolled.append(args[0])
+        return None
 
 
-def test_login_accepts_cookies_then_fills_and_submits() -> None:
-    accept, email, password, submit = (_FakeElement() for _ in range(4))
+def test_login_walks_the_multi_step_form() -> None:
+    names = ("cookie", "email", "esub", "usepw", "pw", "psub")
+    parts = {name: _FakeElement() for name in names}
     driver = _FakeDriver(
         {
-            (By.XPATH, "//button[normalize-space()='Accept All']"): [accept],
-            (By.ID, "email"): [email],
-            (By.ID, "password"): [password],
-            (By.CSS_SELECTOR, "button[type='submit']"): [submit],
+            _COOKIE: [parts["cookie"]],
+            _EMAIL: [parts["email"]],
+            _EMAIL_SUBMIT: [parts["esub"]],
+            _USE_PASSWORD: [parts["usepw"]],
+            _PASSWORD: [parts["pw"]],
+            _PASSWORD_SUBMIT: [parts["psub"]],
         }
     )
     browser = SeleniumBrowser(driver=driver, wait_seconds=1)
     browser.login("me@example.com", "secret")
     assert driver.visited == ["https://www.strava.com/login"]
-    assert accept.clicked  # cookie banner dismissed before touching the form
-    assert email.sent == "me@example.com"
-    assert password.sent == "secret"
-    assert submit.clicked
+    assert parts["cookie"].clicked  # Cybot cookie banner accepted
+    assert parts["email"].sent == "me@example.com"
+    assert parts["esub"].clicked
+    assert parts["usepw"].clicked  # one-time-code promo declined for the password
+    assert parts["pw"].sent == "secret"
+    assert parts["psub"].clicked
 
 
-def test_login_without_a_banner_uses_fallback_locators() -> None:
-    email, password, submit = (_FakeElement() for _ in range(3))
+def test_login_skips_promo_when_password_shown_directly() -> None:
+    usepw = _FakeElement()
+    pw, psub = _FakeElement(), _FakeElement()
     driver = _FakeDriver(
         {
-            (By.CSS_SELECTOR, "input[type='email']"): [email],
-            (By.CSS_SELECTOR, "input[type='password']"): [password],
-            (By.ID, "login-button"): [submit],
+            _COOKIE: [_FakeElement()],
+            _EMAIL: [_FakeElement()],
+            _EMAIL_SUBMIT: [_FakeElement()],
+            # no _USE_PASSWORD entry: Strava went straight to the password screen
+            _PASSWORD: [pw],
+            _PASSWORD_SUBMIT: [psub],
         }
     )
-    browser = SeleniumBrowser(driver=driver, wait_seconds=1, consent_timeout=0.1)
-    browser.login("a@b.c", "pw")
-    assert email.sent == "a@b.c"
-    assert password.sent == "pw"
-    assert submit.clicked
+    browser = SeleniumBrowser(driver=driver, wait_seconds=1)
+    browser.login("a@b.c", "pw123")
+    assert not usepw.clicked
+    assert pw.sent == "pw123"
+    assert psub.clicked
