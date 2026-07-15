@@ -8,9 +8,11 @@ explicit save and on close; each generation archives the raw scraped data for re
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import QThread, Signal
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -43,6 +45,7 @@ from app.site_api import SiteApiClient
 
 DATA_DIR = "data"
 HISTORY_DIR = "temp"
+ICON_PATH = str(Path(__file__).parent / "app.ico")
 _CONFIG_PATH = f"{DATA_DIR}/{CONFIG_NAME}"
 _ACTIONS = [a.value for a in HttpAction]
 _STAGE_RULES = [r.value for r in StageRule]
@@ -237,6 +240,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Strava Protocol Generator")
+        self.setWindowIcon(QIcon(ICON_PATH))
         self._worker: _GenerateWorker | None = None
         central = QWidget()
         self.setCentralWidget(central)
