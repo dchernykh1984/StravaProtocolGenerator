@@ -135,3 +135,35 @@ def test_login_failure_saves_page_source_and_screenshot(tmp_path) -> None:
     pngs = list(tmp_path.glob("login_failure_*.png"))
     assert htmls and pngs
     assert "FAKE PAGE" in htmls[0].read_text(encoding="utf-8")
+
+
+class _LoginPollDriver:
+    """Fake driver whose cookies gain a 'remember' cookie after a few polls."""
+
+    def __init__(self, appears_after: int) -> None:
+        self._appears_after = appears_after
+        self._polls = 0
+
+    def get(self, url: str) -> None:
+        pass
+
+    def find_elements(self, by: Any, selector: str) -> list[_FakeElement]:
+        return []  # no cookie dialog to dismiss
+
+    def get_cookies(self) -> list[dict[str, str]]:
+        self._polls += 1
+        if self._polls >= self._appears_after:
+            return [{"name": "strava_remember_token", "value": "tok"}]
+        return [{"name": "_strava4_session", "value": "sess"}]
+
+
+def test_wait_for_manual_login_returns_cookies_once_signed_in() -> None:
+    browser = SeleniumBrowser(driver=_LoginPollDriver(appears_after=3))
+    cookies = browser.wait_for_manual_login(timeout=5, poll=0.01)
+    assert {c["name"] for c in cookies} == {"strava_remember_token"}
+
+
+def test_wait_for_manual_login_times_out_without_a_session() -> None:
+    browser = SeleniumBrowser(driver=_LoginPollDriver(appears_after=9999))
+    with pytest.raises(TimeoutError):
+        browser.wait_for_manual_login(timeout=0.05, poll=0.01)

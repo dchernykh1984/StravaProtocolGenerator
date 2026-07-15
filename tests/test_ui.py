@@ -276,6 +276,26 @@ def test_single_generate_button_replaces_the_pair() -> None:
     assert "Generate locally" not in labels
 
 
+def test_login_to_strava_button_present() -> None:
+    window = mw.MainWindow()
+    labels = [b.text() for b in window.findChildren(QPushButton)]
+    assert "Login to Strava" in labels
+
+
+def test_manual_login_stores_and_persists_cookies(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    window = mw.MainWindow()
+    saved: list[tuple] = []
+    monkeypatch.setattr(mw, "save_config", lambda *a, **k: saved.append(a))
+    cookies = [{"name": "strava_remember_token", "value": "tok"}]
+    window._on_login_done(cookies)
+    assert window._strava_cookies == cookies
+    assert window.collect_config().strava_cookies == cookies  # carried into the config
+    assert saved  # persisted to disk
+    assert "Logged in to Strava" in window._log.toPlainText()
+
+
 def test_auto_refresh_toggle_starts_and_stops_timer() -> None:
     window = mw.MainWindow()
     window._interval.setValue(5)

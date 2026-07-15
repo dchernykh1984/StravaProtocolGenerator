@@ -183,12 +183,29 @@ class FilePicker(QWidget):
             self.edit.setText(path)
 
 
+class _LoginWorker(QThread):
+    """Opens a real browser and waits for the user to sign in to Strava by hand."""
+
+    done = Signal(object)  # captured cookies
+    failed = Signal(str)
+
+    def run(self) -> None:
+        browser = None
+        try:
+            browser = SeleniumBrowser(diagnostics_dir=LOG_DIR)
+            self.done.emit(browser.wait_for_manual_login())
+        except Exception as exc:  # report any failure back to the UI log
+            self.failed.emit(str(exc))
+        finally:
+            if browser is not None:
+                browser.quit()
+
+
 class _GenerateWorker(QThread):
     """Runs one generation off the UI thread so scraping does not freeze the window."""
 
     done = Signal(object)
     failed = Signal(str)
-    cookies_refreshed = Signal(object)
 
     def __init__(self, config: AppConfig) -> None:
         super().__init__()
@@ -205,38 +222,22 @@ class _GenerateWorker(QThread):
             self.failed.emit(str(exc))
 
     def _generate_authenticated(self, client: SiteApiClient) -> GenerationResult:
-        """Scrape with saved cookies; log in once (and re-cache) only when needed.
+        """Scrape over the saved Strava session; frozen stages skip Strava entirely.
 
         Each protocol's own action (Nothing/Upload/Delete) decides what reaches the
-        site, so generation always runs the publish path. Frozen stages reuse the
-        previous snapshot, so a run with every stage frozen never touches the browser.
+        site, so generation always runs the publish path. A stage that needs scraping
+        without a valid session fails with a clear "log in" message rather than trying
+        to automate the (reCAPTCHA-guarded) sign-in.
         """
-        if self._config.strava_cookies:
-            try:
-                browser = HttpBrowser(self._config.strava_cookies)
-                return generate(
-                    self._config, browser, client, publish=True, previous=self._previous
-                )
-            except StravaAuthError:
-                pass  # session expired -> log in again and refresh the cookies below
-        browser = self._login_and_capture()
-        return generate(
-            self._config, browser, client, publish=True, previous=self._previous
-        )
-
-    def _login_and_capture(self) -> HttpBrowser:
-        """Log in with a real browser once, then scrape over its cookies via HTTP.
-
-        A failed login raises and caches nothing, so the next run just tries again.
-        """
-        selenium = SeleniumBrowser(diagnostics_dir=LOG_DIR)
+        browser = HttpBrowser(self._config.strava_cookies)
         try:
-            selenium.login(self._config.strava_login, self._config.strava_password)
-            cookies = selenium.cookies()
-        finally:
-            selenium.quit()
-        self.cookies_refreshed.emit(cookies)
-        return HttpBrowser(cookies)
+            return generate(
+                self._config, browser, client, publish=True, previous=self._previous
+            )
+        except StravaAuthError as exc:
+            raise RuntimeError(
+                "Strava session is missing or expired -- click 'Login to Strava'."
+            ) from exc
 
 
 class StageTab(QWidget):
@@ -399,6 +400,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Strava Protocol Generator")
         self.setWindowIcon(QIcon(ICON_PATH))
         self._worker: _GenerateWorker | None = None
+        self._login_worker: _LoginWorker | None = None
         self._timer: QTimer | None = None
         self._strava_cookies: list[dict[str, Any]] = []
         central = QWidget()
@@ -480,6 +482,8 @@ class MainWindow(QMainWindow):
 
     def _build_action_buttons(self) -> QHBoxLayout:
         row = QHBoxLayout()
+        login_btn = QPushButton("Login to Strava")
+        login_btn.clicked.connect(self._on_login)
         generate_btn = QPushButton("Generate")
         generate_btn.clicked.connect(self._on_generate)
         self._auto_refresh = QCheckBox("Auto-refresh")
@@ -489,6 +493,7 @@ class MainWindow(QMainWindow):
         self._interval.setValue(30)
         save_btn = QPushButton("Save config")
         save_btn.clicked.connect(self._on_save)
+        row.addWidget(login_btn)
         row.addWidget(generate_btn)
         row.addWidget(self._auto_refresh)
         row.addWidget(QLabel("Interval (sec):"))
@@ -597,13 +602,26 @@ class MainWindow(QMainWindow):
         self._worker = _GenerateWorker(config)
         self._worker.done.connect(self._on_generation_done)
         self._worker.failed.connect(self._on_generation_failed)
-        self._worker.cookies_refreshed.connect(self._on_cookies_refreshed)
         self._worker.start()
 
-    def _on_cookies_refreshed(self, cookies: Any) -> None:
-        """Persist a freshly captured Strava session so later runs skip the login."""
+    def _on_login(self) -> None:
+        if self._login_worker is not None and self._login_worker.isRunning():
+            self._append_log("A Strava login is already in progress.")
+            return
+        self._append_log("Opening Strava in a browser -- sign in there by hand...")
+        self._login_worker = _LoginWorker()
+        self._login_worker.done.connect(self._on_login_done)
+        self._login_worker.failed.connect(self._on_login_failed)
+        self._login_worker.start()
+
+    def _on_login_done(self, cookies: Any) -> None:
+        """Persist the manually captured Strava session so runs reuse it for weeks."""
         self._strava_cookies = cookies
         save_config(self.collect_config(), DATA_DIR, HISTORY_DIR)
+        self._append_log("Logged in to Strava; the session was saved.")
+
+    def _on_login_failed(self, message: str) -> None:
+        self._append_log(f"Strava login failed: {message}")
 
     def _on_refresh_toggled(self, checked: bool) -> None:
         """Start or stop periodic regeneration at the configured interval."""
