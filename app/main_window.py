@@ -12,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QDate, Qt, QThread, Signal
+from PySide6.QtCore import QDate, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QCalendarWidget,
@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QMainWindow,
     QMessageBox,
@@ -357,6 +358,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Strava Protocol Generator")
         self.setWindowIcon(QIcon(ICON_PATH))
         self._worker: _GenerateWorker | None = None
+        self._timer: QTimer | None = None
         central = QWidget()
         self.setCentralWidget(central)
         root = QVBoxLayout(central)
@@ -436,9 +438,17 @@ class MainWindow(QMainWindow):
         row = QHBoxLayout()
         generate_btn = QPushButton("Generate")
         generate_btn.clicked.connect(self._on_generate)
+        self._auto_refresh = QCheckBox("Auto-refresh")
+        self._auto_refresh.toggled.connect(self._on_refresh_toggled)
+        self._interval = QSpinBox()
+        self._interval.setRange(1, 3600)
+        self._interval.setValue(30)
         save_btn = QPushButton("Save config")
         save_btn.clicked.connect(self._on_save)
         row.addWidget(generate_btn)
+        row.addWidget(self._auto_refresh)
+        row.addWidget(QLabel("Interval (sec):"))
+        row.addWidget(self._interval)
         row.addWidget(save_btn)
         row.addStretch(1)
         return row
@@ -538,6 +548,16 @@ class MainWindow(QMainWindow):
         self._worker.done.connect(self._on_generation_done)
         self._worker.failed.connect(self._on_generation_failed)
         self._worker.start()
+
+    def _on_refresh_toggled(self, checked: bool) -> None:
+        """Start or stop periodic regeneration at the configured interval."""
+        if checked:
+            if self._timer is None:
+                self._timer = QTimer(self)
+                self._timer.timeout.connect(self._on_generate)
+            self._timer.start(self._interval.value() * 1000)
+        elif self._timer is not None:
+            self._timer.stop()
 
     def _on_generation_done(self, result: Any) -> None:
         generation: GenerationResult = result
