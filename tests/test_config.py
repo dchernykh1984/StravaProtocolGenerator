@@ -15,6 +15,7 @@ def _rich_config() -> AppConfig:
         site_url="https://site.test",
         strava_login="rider@example.com",
         strava_password="secret",
+        strava_cookies=[{"name": "_strava4_session", "value": "abc"}],
         roster_token="roster-tok",
         unregistered_group_name="Others",
         decimals=1,
@@ -53,12 +54,15 @@ def test_enums_serialize_as_strings() -> None:
     assert data["cup"]["cup_rule"] == CupRule.SUM_OF_TIMES.value
 
 
-def test_redacted_config_blanks_password() -> None:
+def test_redacted_config_blanks_password_and_cookies() -> None:
     cfg = _rich_config()
     public = cfg.to_dict(include_secrets=False)
     assert public["strava_password"] == ""
+    assert public["strava_cookies"] == []
     # The login and everything else is preserved.
     assert public["strava_login"] == "rider@example.com"
+    # With secrets included, the session cookies are kept for the next launch.
+    assert cfg.to_dict()["strava_cookies"] == cfg.strava_cookies
 
 
 def test_from_dict_defaults_missing_keys() -> None:

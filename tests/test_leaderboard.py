@@ -5,6 +5,8 @@ from datetime import date
 from app.leaderboard import (
     build_segment_url,
     filter_by_date,
+    has_next_page,
+    has_results_table,
     parse_leaderboard_date,
     parse_leaderboard_html,
 )
@@ -34,6 +36,18 @@ _LEADERBOARD = """
   </table>
 </div>
 """
+
+
+def test_has_results_table_detects_the_table() -> None:
+    assert has_results_table(_LEADERBOARD) is True
+    assert has_results_table("<html><body>no table here</body></html>") is False
+
+
+def test_has_next_page_reads_the_pagination_control() -> None:
+    enabled = '<ul><li class="next_page"><a href="?page=2">Next</a></li></ul>'
+    assert has_next_page(enabled)
+    assert not has_next_page('<ul><li class="next_page disabled">Next</li></ul>')
+    assert not has_next_page("<ul><li>1</li></ul>")
 
 
 def test_build_segment_url_default_is_overall() -> None:

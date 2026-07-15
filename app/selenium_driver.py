@@ -35,6 +35,16 @@ class SeleniumBrowser:
         self._driver.find_element(By.ID, "password").send_keys(password)
         self._driver.find_element(By.XPATH, "//button[@type='submit']").click()
 
+    def cookies(self) -> list[dict[str, Any]]:
+        """Return the current session cookies (call after a successful login).
+
+        Visits the dashboard first so Strava has issued the signed-in session cookie,
+        then hands back the whole jar for the HTTP scraper to reuse without re-login.
+        """
+        self._driver.get("https://www.strava.com/dashboard")
+        sleep(_PAGE_SETTLE_SECONDS)
+        return list(self._driver.get_cookies())
+
     def get(self, url: str) -> None:
         self._driver.get(url)
         self._wait.until(ec.presence_of_element_located(_RESULTS))
