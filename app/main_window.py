@@ -492,6 +492,7 @@ class MainWindow(QMainWindow):
             unregistered_group_name=self._globals["unregistered_group_name"].text(),
             decimals=self._decimals.value(),
             show_strava_links=self._show_strava_links.isChecked(),
+            log_to_file=self._log_to_file.isChecked(),
             template_file=self._template_file.text().strip(),
             output_dir=self._globals["output_dir"].text().strip() or "output",
             stages=stages or [StageConfig()],
@@ -507,6 +508,7 @@ class MainWindow(QMainWindow):
         self._globals["unregistered_group_name"].setText(config.unregistered_group_name)
         self._decimals.setValue(config.decimals)
         self._show_strava_links.setChecked(config.show_strava_links)
+        self._log_to_file.setChecked(config.log_to_file)
         self._template_file.setText(config.template_file)
         self._globals["output_dir"].setText(config.output_dir)
         self._tabs.clear()

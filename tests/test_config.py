@@ -20,6 +20,7 @@ def _rich_config() -> AppConfig:
         unregistered_group_name="Others",
         decimals=1,
         show_strava_links=True,
+        log_to_file=True,
         template_file="template.html",
         output_dir="out",
         stages=[
