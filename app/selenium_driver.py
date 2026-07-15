@@ -12,11 +12,7 @@ from time import sleep
 from typing import Any
 
 from selenium import webdriver
-from selenium.common.exceptions import (
-    NoSuchElementException,
-    TimeoutException,
-    WebDriverException,
-)
+from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.wait import WebDriverWait
@@ -26,31 +22,35 @@ _RESULTS = (By.XPATH, "//div[@id='results']/table")
 _NEXT_PAGE = (By.XPATH, "//li[@class='next_page']")
 _PAGE_SETTLE_SECONDS = 5
 
-# Strava renders the login form with JavaScript and revises its markup over time, so we
-# wait for the field to appear and try several locators (the ``type=`` ones survive id
-# and name changes) rather than depending on a single fixed id.
+# Strava's login is a multi-step flow behind a Cybot cookie banner. Each group lists a
+# precise selector first and generic fallbacks after, so it survives Strava revising the
+# hashed class names. The steps: accept cookies (they block the form), enter the email
+# and continue, decline the one-time-code promo, then enter the password and submit.
+_COOKIE_ACCEPT = (
+    (By.ID, "CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll"),
+    (By.XPATH, "//button[normalize-space()='Accept All']"),
+)
 _EMAIL_LOCATORS = (
-    (By.ID, "email"),
-    (By.NAME, "email"),
-    (By.CSS_SELECTOR, "input[type='email']"),
+    (By.ID, "mobile-email"),
+    (By.CSS_SELECTOR, "input[name='email'][type='email']"),
+    (By.CSS_SELECTOR, "[data-cy='email']"),
+)
+_EMAIL_SUBMIT = (
+    (By.ID, "mobile-login-button"),
+    (By.CSS_SELECTOR, "[data-cy='login-button']"),
+)
+_USE_PASSWORD = (
+    (By.CSS_SELECTOR, "[data-testid='use-password-cta'] button"),
+    (By.XPATH, "//button[normalize-space()='Use password instead']"),
 )
 _PASSWORD_LOCATORS = (
-    (By.ID, "password"),
-    (By.NAME, "password"),
+    (By.CSS_SELECTOR, "input[name='password'][type='password']"),
+    (By.CSS_SELECTOR, "[data-cy='password']"),
     (By.CSS_SELECTOR, "input[type='password']"),
 )
-_SUBMIT_LOCATORS = (
-    (By.CSS_SELECTOR, "button[type='submit']"),
-    (By.ID, "login-button"),
-    (By.XPATH, "//button[contains(., 'Log In') or contains(., 'Login')]"),
-)
-# Strava overlays the login form with its own cookie banner whose accept control reads
-# "Accept All"; until it is dismissed the fields are present but not interactable.
-_CONSENT_LOCATORS = (
-    (By.XPATH, "//button[normalize-space()='Accept All']"),
-    (By.XPATH, "//button[contains(., 'Accept All')]"),
-    (By.ID, "onetrust-accept-btn-handler"),
-    (By.CSS_SELECTOR, "button[aria-label='Accept']"),
+_PASSWORD_SUBMIT = (
+    (By.XPATH, "//button[normalize-space()='Log in']"),
+    (By.CSS_SELECTOR, "form button[type='submit']"),
 )
 
 
@@ -76,31 +76,54 @@ class SeleniumBrowser:
         self._consent_timeout = consent_timeout
 
     def login(self, email: str, password: str) -> None:
-        """Sign in, dismissing the cookie banner and tolerating markup changes."""
+        """Sign in through Strava's multi-step, cookie-gated login form.
+
+        Accept the cookie banner (the fields are not interactable while it is up), enter
+        the email and continue, decline the one-time-code promo in favour of the
+        password, then enter the password and submit. Each screen is rendered by
+        JavaScript, so every step waits for its control to appear (and to be enabled --
+        the submit buttons stay disabled until their field is filled).
+        """
         self._driver.get(_LOGIN_URL)
         self._dismiss_consent()
-        self._wait.until(lambda _: self._find_first(_EMAIL_LOCATORS) is not None)
-        self._type_into(_EMAIL_LOCATORS, email)
-        self._type_into(_PASSWORD_LOCATORS, password)
-        submit = self._find_first(_SUBMIT_LOCATORS)
-        if submit is None:
-            raise NoSuchElementException("Strava login submit button not found")
-        self._scroll_into_view(submit)
-        submit.click()
+        self._fill(self._wait_present(_EMAIL_LOCATORS), email)
+        self._click(self._wait_enabled(_EMAIL_SUBMIT))
+        self._skip_otp_promo()
+        self._fill(self._wait_present(_PASSWORD_LOCATORS), password)
+        self._click(self._wait_enabled(_PASSWORD_SUBMIT))
 
     def _dismiss_consent(self) -> None:
         """Wait briefly for the cookie banner and accept it so it stops overlaying.
 
-        The fields are present but not interactable while the banner is up, so this is
-        the real unblocker. Best-effort: proceed if no banner appears within the window.
+        Best-effort: proceed if no banner appears within the window.
         """
         try:
             WebDriverWait(self._driver, self._consent_timeout).until(
-                lambda _: self._find_first(_CONSENT_LOCATORS) is not None
+                lambda _: self._find_first(_COOKIE_ACCEPT) is not None
             )
         except TimeoutException, WebDriverException:
             return
-        self._click_if_present(_CONSENT_LOCATORS)
+        self._click_if_present(_COOKIE_ACCEPT)
+
+    def _skip_otp_promo(self) -> None:
+        """After the email step Strava may promote one-time codes; keep the password."""
+        self._wait.until(
+            lambda _: (
+                self._find_first(_PASSWORD_LOCATORS) is not None
+                or self._find_first(_USE_PASSWORD) is not None
+            )
+        )
+        self._click_if_present(_USE_PASSWORD)
+
+    def _wait_present(self, locators: tuple[tuple[str, str], ...]) -> Any:
+        self._wait.until(lambda _: self._find_first(locators) is not None)
+        return self._find_first(locators)
+
+    def _wait_enabled(self, locators: tuple[tuple[str, str], ...]) -> Any:
+        self._wait.until(
+            lambda _: (e := self._find_first(locators)) is not None and e.is_enabled()
+        )
+        return self._find_first(locators)
 
     def _find_first(self, locators: tuple[tuple[str, str], ...]) -> Any:
         for locator in locators:
@@ -112,21 +135,23 @@ class SeleniumBrowser:
     def _scroll_into_view(self, element: Any) -> None:
         self._driver.execute_script("arguments[0].scrollIntoView(true)", element)
 
-    def _type_into(self, locators: tuple[tuple[str, str], ...], text: str) -> None:
-        field = self._find_first(locators)
-        if field is None:
-            raise NoSuchElementException(f"Strava login field not found: {locators}")
+    def _fill(self, field: Any, text: str) -> None:
         self._scroll_into_view(field)
         field.clear()
         field.send_keys(text)
+
+    def _click(self, element: Any) -> None:
+        self._scroll_into_view(element)
+        element.click()
 
     def _click_if_present(self, locators: tuple[tuple[str, str], ...]) -> None:
         element = self._find_first(locators)
         if element is not None:
             try:
+                self._scroll_into_view(element)
                 element.click()
             except WebDriverException:
-                pass  # a consent banner is best-effort; ignore if it will not dismiss
+                pass  # best-effort (cookie / OTP promo); ignore if it will not click
 
     def cookies(self) -> list[dict[str, Any]]:
         """Return the current session cookies (call after a successful login).
