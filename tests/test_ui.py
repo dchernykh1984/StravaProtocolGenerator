@@ -274,6 +274,13 @@ def test_auto_refresh_toggle_starts_and_stops_timer() -> None:
     assert not window._timer.isActive()
 
 
+def test_roster_token_field_has_clear_label() -> None:
+    window = mw.MainWindow()
+    field = window._globals["roster_token"]
+    label = window._globals_layout.labelForField(field).text()
+    assert label == "Registration list token"
+
+
 def test_strava_links_checkbox_round_trips() -> None:
     window = mw.MainWindow()
     window.apply_config(AppConfig(show_strava_links=True, cup=CupConfig()))

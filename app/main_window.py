@@ -436,7 +436,7 @@ class MainWindow(QMainWindow):
         self._globals_layout.addRow("Site URL", widgets["site_url"])
         self._globals_layout.addRow("Strava login", widgets["strava_login"])
         self._globals_layout.addRow("Strava password", widgets["strava_password"])
-        self._globals_layout.addRow("Roster token", widgets["roster_token"])
+        self._globals_layout.addRow("Registration list token", widgets["roster_token"])
         self._globals_layout.addRow(
             "Unregistered group", widgets["unregistered_group_name"]
         )
