@@ -415,11 +415,14 @@ class MainWindow(QMainWindow):
 
     def _build_stage_buttons(self) -> QHBoxLayout:
         row = QHBoxLayout()
-        add = QPushButton("Add stage")
-        add.clicked.connect(self._on_add_stage)
+        add_left = QPushButton("Add stage left")
+        add_left.clicked.connect(lambda: self._add_stage_copy(0))
+        add_right = QPushButton("Add stage right")
+        add_right.clicked.connect(lambda: self._add_stage_copy(1))
         remove = QPushButton("Delete stage")
         remove.clicked.connect(self._on_delete_stage)
-        row.addWidget(add)
+        row.addWidget(add_left)
+        row.addWidget(add_right)
         row.addWidget(remove)
         row.addStretch(1)
         return row
@@ -492,10 +495,11 @@ class MainWindow(QMainWindow):
 
     # -- actions -------------------------------------------------------------
 
-    def _on_add_stage(self) -> None:
+    def _add_stage_copy(self, offset: int) -> None:
+        """Insert a copy of the current stage beside it (offset 0 left, 1 right)."""
         current = self._tabs.currentWidget()
         template = current.to_config() if current is not None else StageConfig()
-        self._add_stage_tab(template, index=self._tabs.currentIndex() + 1)
+        self._add_stage_tab(template, index=self._tabs.currentIndex() + offset)
 
     def _on_delete_stage(self) -> None:
         if self._tabs.count() <= 1:

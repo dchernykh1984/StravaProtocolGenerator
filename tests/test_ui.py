@@ -44,10 +44,36 @@ def test_tab_title_falls_back_when_name_cleared() -> None:
 
 def test_added_stage_tab_also_tracks_its_name() -> None:
     window = mw.MainWindow()
-    window._on_add_stage()
+    window._add_stage_copy(1)
     new_index = window._tabs.currentIndex()
     window._tabs.widget(new_index).name.setText("Day 2")
     assert window._tabs.tabText(new_index) == "Day 2"
+
+
+def test_add_stage_right_inserts_copy_after_current() -> None:
+    window = mw.MainWindow()
+    window.apply_config(AppConfig(stages=[StageConfig(name="A")], cup=CupConfig()))
+    window._tabs.setCurrentIndex(0)
+    window._add_stage_copy(1)
+    assert window._tabs.count() == 2
+    assert window._tabs.currentIndex() == 1
+    assert window._tabs.widget(0).name.text() == "A"
+    assert window._tabs.widget(1).name.text() == "A"
+
+
+def test_add_stage_left_inserts_copy_before_current() -> None:
+    window = mw.MainWindow()
+    window.apply_config(
+        AppConfig(
+            stages=[StageConfig(name="A"), StageConfig(name="B")], cup=CupConfig()
+        )
+    )
+    window._tabs.setCurrentIndex(1)
+    window._add_stage_copy(0)
+    assert window._tabs.count() == 3
+    assert window._tabs.currentIndex() == 1
+    assert window._tabs.widget(1).name.text() == "B"
+    assert window._tabs.widget(2).name.text() == "B"
 
 
 def test_stage_date_fields_are_date_fields() -> None:
