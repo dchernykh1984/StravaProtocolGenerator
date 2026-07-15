@@ -13,6 +13,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from pathlib import Path
 
 import pytest
+from PySide6.QtCore import QDate
 from PySide6.QtGui import QCloseEvent, QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
@@ -49,12 +50,31 @@ def test_added_stage_tab_also_tracks_its_name() -> None:
     assert window._tabs.tabText(new_index) == "Day 2"
 
 
-def test_stage_date_fields_are_calendar_pickers() -> None:
+def test_stage_date_fields_are_date_fields() -> None:
     tab = mw.StageTab(StageConfig(date_from="2026-08-01", date_to="2026-08-02"))
     assert isinstance(tab.date_from, mw.DateField)
-    assert tab.date_from.calendarPopup()
     assert tab.date_from.iso() == "2026-08-01"
     assert tab.date_to.iso() == "2026-08-02"
+
+
+def test_stage_date_field_keeps_typed_text() -> None:
+    tab = mw.StageTab(StageConfig())
+    tab.date_from.edit.setText("2026-07-14")  # plain text survives, like a line edit
+    assert tab.date_from.iso() == "2026-07-14"
+    assert tab.to_config().date_from == "2026-07-14"
+
+
+def test_stage_date_field_calendar_fills_iso() -> None:
+    tab = mw.StageTab(StageConfig())
+    tab.date_from._apply_date(QDate(2026, 7, 14))
+    assert tab.date_from.iso() == "2026-07-14"
+
+
+def test_stage_date_field_calendar_popup_reflects_current_value() -> None:
+    tab = mw.StageTab(StageConfig(date_from="2026-07-14"))
+    tab.date_from._open_calendar()
+    assert tab.date_from._calendar.selectedDate() == QDate(2026, 7, 14)
+    tab.date_from._calendar.close()
 
 
 def test_stage_date_labels_mark_bounds_inclusive() -> None:
