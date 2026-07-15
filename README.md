@@ -4,54 +4,73 @@ A desktop tool that builds competition protocols from Strava segment results and
 publishes them to the cycling site, in the same spirit as the offline-referee
 Finish Protocol Generator.
 
-The planned flow: sign in to Strava, read a competition's segments and scoring
-rules, scrape the relevant segment leaderboards, match them against the riders
-registered on the site, compute per-stage and overall (cup) standings, and push
-the finished protocol back to the site.
-
-> Status: project scaffolding only. This repository currently contains the
-> tooling (uv, pre-commit, CI, tests) and an empty `app` package. The generator
-> itself is not implemented yet.
+It signs in to Strava, reads a competition's registered roster from the site,
+scrapes the configured segment leaderboards, matches riders to their registration,
+computes per-stage standings and an overall cup, renders the protocols to HTML, and
+optionally publishes them back to the site.
 
 ## Requirements
 
 - Python 3.14
 - [uv](https://docs.astral.sh/uv/) for dependency management
+- Google Chrome (Selenium drives it to scrape Strava; the driver is resolved
+  automatically by Selenium Manager)
 
 ## Setup
-
-Install uv (see the uv docs for your platform), then sync the environment:
 
 ```bash
 uv sync
 ```
 
-This creates a local `.venv` with the runtime and development dependencies.
+## Running
 
-## Running the tests
+```bash
+uv run python -m app.main
+```
+
+The window loads its saved config from `data/config.json`. Fill in the Strava
+credentials, the site URL, the roster token (the multi-day competition's upload
+token), and configure the stages and the cup, then generate.
+
+## How it works
+
+- **Roster** -- fetched from the site's `/api/v1/participants/` endpoint by token,
+  giving the registered riders and their categories.
+- **Scraping** -- each stage's Strava segment leaderboards are read page by page
+  and narrowed to the collection window.
+- **Matching** -- a leaderboard row is matched to a registration by the Strava link
+  in its `additional_info` first, then by a swap-tolerant name key. Riders who match
+  no registration go into a configurable "not registered" group.
+- **Scoring** -- a stage value is the sum of its segment times; the cup total is the
+  sum of stage values. The rule controls are designed to be extended (place, other
+  algorithms) without changing callers.
+- **Protocols** -- for every stage and for the cup, both an absolute and a by-group
+  protocol are rendered, using the same 11-line `template.html` style format as the
+  Finish Protocol Generator, so its templates apply here. All column labels are
+  configurable, and the cup shows one "lap" column per stage plus a total.
+- **Publishing** -- each protocol has its own action (Nothing / Upload / Delete) to
+  the relevant token (per-stage broadcast token, or the overall token for the cup).
+  There is no FTP; a local HTML copy is always written.
+
+## Stages, config, and backups
+
+- Add a stage with **Add stage**: a new tab is inserted to the right of the current
+  one, copying its settings. **Delete stage** removes the current tab.
+- The config is saved on **Save config** and on close. Each save also writes a
+  timestamped version to `temp/` with the Strava password redacted.
+- Every generation archives the raw scraped data (a JSON snapshot in `temp/`), so a
+  protocol can be regenerated later even if Strava stops serving that day's efforts.
+
+## Tests and pre-commit
 
 ```bash
 uv run pytest
-```
-
-Tests run in parallel (pytest-xdist) and enforce a 90% coverage gate.
-
-## Pre-commit
-
-Install the git hooks once, then let them run on every commit:
-
-```bash
 uv run pre-commit install
-```
-
-To run all hooks against the whole tree on demand:
-
-```bash
 uv run pre-commit run --all-files
 ```
 
-The hooks cover ruff (lint + format), mypy, file hygiene, a non-ASCII guard, and
-conventional-commit validation (commitizen).
+The pure core (parsing, matching, scoring, rendering, config, backups, pipeline) is
+fully covered by tests; the Selenium driver and the Qt UI are excluded from coverage.
 
 ## Contributing
 
