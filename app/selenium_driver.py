@@ -50,7 +50,15 @@ class SeleniumBrowser:
     """Drives a real Chrome; satisfies ``app.scraper.Browser`` plus login/quit."""
 
     def __init__(self, driver: Any = None, wait_seconds: int = 10) -> None:
-        self._driver: Any = driver if driver is not None else webdriver.Chrome()
+        if driver is None:
+            options = webdriver.ChromeOptions()
+            # A full desktop-width window: a narrow default can trigger a mobile layout
+            # that omits the login fields, and it keeps the form and any consent banner
+            # on-screen and interactable.
+            options.add_argument("--window-size=1920,1080")
+            options.add_argument("--start-maximized")
+            driver = webdriver.Chrome(options=options)
+        self._driver: Any = driver
         self._wait: Any = WebDriverWait(self._driver, wait_seconds)
 
     def login(self, email: str, password: str) -> None:
