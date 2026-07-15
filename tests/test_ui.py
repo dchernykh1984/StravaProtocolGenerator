@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import QDate
 from PySide6.QtGui import QCloseEvent, QIcon
-from PySide6.QtWidgets import QApplication, QLineEdit, QMessageBox
+from PySide6.QtWidgets import QApplication, QLineEdit, QMessageBox, QPushButton
 
 from app import main_window as mw
 from app.config import AppConfig, CupConfig, StageConfig
@@ -253,6 +253,14 @@ def test_log_to_file_writes_only_when_checked(
     # both messages always reach the on-screen log, regardless of the checkbox
     assert "hidden" in window._log.toPlainText()
     assert "captured" in window._log.toPlainText()
+
+
+def test_single_generate_button_replaces_the_pair() -> None:
+    window = mw.MainWindow()
+    labels = [b.text() for b in window.findChildren(QPushButton)]
+    assert "Generate" in labels
+    assert "Generate and publish" not in labels
+    assert "Generate locally" not in labels
 
 
 def test_strava_password_is_shown_as_plain_text() -> None:

@@ -179,10 +179,9 @@ class _GenerateWorker(QThread):
     done = Signal(object)
     failed = Signal(str)
 
-    def __init__(self, config: AppConfig, publish: bool) -> None:
+    def __init__(self, config: AppConfig) -> None:
         super().__init__()
         self._config = config
-        self._publish = publish
 
     def run(self) -> None:
         browser = None
@@ -190,7 +189,9 @@ class _GenerateWorker(QThread):
             browser = SeleniumBrowser()
             browser.login(self._config.strava_login, self._config.strava_password)
             client = SiteApiClient(self._config.site_url)
-            result = generate(self._config, browser, client, publish=self._publish)
+            # Each protocol's own action (Nothing/Upload/Delete) decides what reaches
+            # the site, so generation always runs the publish path.
+            result = generate(self._config, browser, client, publish=True)
             save_raw_data(result.raw_snapshot, HISTORY_DIR)
             self.done.emit(result)
         except Exception as exc:  # report any failure back to the UI log
@@ -433,14 +434,11 @@ class MainWindow(QMainWindow):
 
     def _build_action_buttons(self) -> QHBoxLayout:
         row = QHBoxLayout()
-        generate_btn = QPushButton("Generate and publish")
-        generate_btn.clicked.connect(lambda: self._on_generate(publish=True))
-        local_btn = QPushButton("Generate locally")
-        local_btn.clicked.connect(lambda: self._on_generate(publish=False))
+        generate_btn = QPushButton("Generate")
+        generate_btn.clicked.connect(self._on_generate)
         save_btn = QPushButton("Save config")
         save_btn.clicked.connect(self._on_save)
         row.addWidget(generate_btn)
-        row.addWidget(local_btn)
         row.addWidget(save_btn)
         row.addStretch(1)
         return row
@@ -529,14 +527,14 @@ class MainWindow(QMainWindow):
         save_config(self.collect_config(), DATA_DIR, HISTORY_DIR)
         self._append_log("Config saved.")
 
-    def _on_generate(self, publish: bool) -> None:
+    def _on_generate(self) -> None:
         if self._worker is not None and self._worker.isRunning():
             self._append_log("A generation is already running.")
             return
         config = self.collect_config()
         save_config(config, DATA_DIR, HISTORY_DIR)
         self._append_log("Generating...")
-        self._worker = _GenerateWorker(config, publish)
+        self._worker = _GenerateWorker(config)
         self._worker.done.connect(self._on_generation_done)
         self._worker.failed.connect(self._on_generation_failed)
         self._worker.start()
