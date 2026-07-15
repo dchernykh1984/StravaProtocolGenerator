@@ -108,6 +108,36 @@ class DateField(QDateEdit):
         return "" if self.date() == self._EMPTY else self.date().toString(self._ISO)
 
 
+class FilePicker(QWidget):
+    """A line edit paired with a Browse button that opens a save-file chooser.
+
+    Exposes ``text``/``setText`` so it drops in wherever a ``QLineEdit`` held a path.
+    """
+
+    def __init__(self, value: str = "") -> None:
+        super().__init__()
+        row = QHBoxLayout(self)
+        row.setContentsMargins(0, 0, 0, 0)
+        self.edit = QLineEdit(value)
+        button = QPushButton("Browse")
+        button.clicked.connect(self._browse)
+        row.addWidget(self.edit, stretch=1)
+        row.addWidget(button)
+
+    def text(self) -> str:
+        return self.edit.text()
+
+    def setText(self, value: str) -> None:  # noqa: N802 - mirrors QLineEdit
+        self.edit.setText(value)
+
+    def _browse(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Pick file", self.edit.text(), "*.html"
+        )
+        if path:
+            self.edit.setText(path)
+
+
 class _GenerateWorker(QThread):
     """Runs one generation off the UI thread so scraping does not freeze the window."""
 
@@ -152,8 +182,8 @@ class StageTab(QWidget):
         self.stage_label = QLineEdit(stage.stage_label)
         self.absolute_action = _combo(_ACTIONS, stage.absolute_action.value)
         self.group_action = _combo(_ACTIONS, stage.group_action.value)
-        self.absolute_file = QLineEdit(stage.absolute_file)
-        self.group_file = QLineEdit(stage.group_file)
+        self.absolute_file = FilePicker(stage.absolute_file)
+        self.group_file = FilePicker(stage.group_file)
         self.cup_column_label = QLineEdit(stage.cup_column_label)
         self.place_label = QLineEdit(stage.place_label)
         self.name_label = QLineEdit(stage.name_label)
@@ -219,8 +249,8 @@ class CupPanel(QWidget):
         self.stage_label = QLineEdit(cup.stage_label)
         self.absolute_action = _combo(_ACTIONS, cup.absolute_action.value)
         self.group_action = _combo(_ACTIONS, cup.group_action.value)
-        self.absolute_file = QLineEdit(cup.absolute_file)
-        self.group_file = QLineEdit(cup.group_file)
+        self.absolute_file = FilePicker(cup.absolute_file)
+        self.group_file = FilePicker(cup.group_file)
         self.place_label = QLineEdit(cup.place_label)
         self.name_label = QLineEdit(cup.name_label)
         self.total_label = QLineEdit(cup.total_label)

@@ -17,7 +17,7 @@ from PySide6.QtGui import QCloseEvent, QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from app import main_window as mw
-from app.config import StageConfig
+from app.config import CupConfig, StageConfig
 
 _app = QApplication.instance() or QApplication([])
 
@@ -77,6 +77,41 @@ def test_stage_empty_dates_round_trip_to_empty_string() -> None:
     config = tab.to_config()
     assert config.date_from == ""
     assert config.date_to == ""
+
+
+def test_stage_file_fields_are_file_pickers() -> None:
+    tab = mw.StageTab(StageConfig())
+    assert isinstance(tab.absolute_file, mw.FilePicker)
+    assert isinstance(tab.group_file, mw.FilePicker)
+
+
+def test_cup_file_fields_are_file_pickers() -> None:
+    panel = mw.CupPanel(CupConfig())
+    assert isinstance(panel.absolute_file, mw.FilePicker)
+    assert isinstance(panel.group_file, mw.FilePicker)
+
+
+def test_file_picker_browse_sets_chosen_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    picker = mw.FilePicker()
+    monkeypatch.setattr(
+        mw.QFileDialog, "getSaveFileName", lambda *a, **k: ("chosen/out.html", "*.html")
+    )
+    picker._browse()
+    assert picker.text() == "chosen/out.html"
+
+
+def test_file_picker_browse_cancel_keeps_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    picker = mw.FilePicker("keep.html")
+    monkeypatch.setattr(mw.QFileDialog, "getSaveFileName", lambda *a, **k: ("", ""))
+    picker._browse()
+    assert picker.text() == "keep.html"
+
+
+def test_stage_file_paths_round_trip_through_config() -> None:
+    tab = mw.StageTab(StageConfig(absolute_file="a.html", group_file="g.html"))
+    config = tab.to_config()
+    assert config.absolute_file == "a.html"
+    assert config.group_file == "g.html"
 
 
 def test_close_confirmed_saves_and_accepts(monkeypatch: pytest.MonkeyPatch) -> None:
