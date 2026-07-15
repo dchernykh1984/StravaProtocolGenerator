@@ -233,6 +233,28 @@ def test_file_picker_browse_cancel_keeps_value(monkeypatch: pytest.MonkeyPatch) 
     assert picker.text() == "keep.html"
 
 
+def test_log_to_file_writes_only_when_checked(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(mw, "LOG_DIR", str(tmp_path))
+    window = mw.MainWindow()
+
+    window._log_to_file.setChecked(False)
+    window._append_log("hidden")
+    assert list(tmp_path.glob("session_*.log")) == []
+
+    window._log_to_file.setChecked(True)
+    window._append_log("captured")
+    logs = list(tmp_path.glob("session_*.log"))
+    assert len(logs) == 1
+    written = logs[0].read_text(encoding="utf-8")
+    assert "captured" in written
+    assert "hidden" not in written
+    # both messages always reach the on-screen log, regardless of the checkbox
+    assert "hidden" in window._log.toPlainText()
+    assert "captured" in window._log.toPlainText()
+
+
 def test_strava_password_is_shown_as_plain_text() -> None:
     window = mw.MainWindow()
     field = window._globals["strava_password"]
