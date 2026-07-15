@@ -229,7 +229,7 @@ class _GenerateWorker(QThread):
 
         A failed login raises and caches nothing, so the next run just tries again.
         """
-        selenium = SeleniumBrowser()
+        selenium = SeleniumBrowser(diagnostics_dir=LOG_DIR)
         try:
             selenium.login(self._config.strava_login, self._config.strava_password)
             cookies = selenium.cookies()
