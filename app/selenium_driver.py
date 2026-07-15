@@ -12,7 +12,11 @@ from time import sleep
 from typing import Any
 
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException, WebDriverException
+from selenium.common.exceptions import (
+    NoSuchElementException,
+    TimeoutException,
+    WebDriverException,
+)
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.wait import WebDriverWait
@@ -40,7 +44,11 @@ _SUBMIT_LOCATORS = (
     (By.ID, "login-button"),
     (By.XPATH, "//button[contains(., 'Log In') or contains(., 'Login')]"),
 )
+# Strava overlays the login form with its own cookie banner whose accept control reads
+# "Accept All"; until it is dismissed the fields are present but not interactable.
 _CONSENT_LOCATORS = (
+    (By.XPATH, "//button[normalize-space()='Accept All']"),
+    (By.XPATH, "//button[contains(., 'Accept All')]"),
     (By.ID, "onetrust-accept-btn-handler"),
     (By.CSS_SELECTOR, "button[aria-label='Accept']"),
 )
@@ -49,7 +57,12 @@ _CONSENT_LOCATORS = (
 class SeleniumBrowser:
     """Drives a real Chrome; satisfies ``app.scraper.Browser`` plus login/quit."""
 
-    def __init__(self, driver: Any = None, wait_seconds: int = 10) -> None:
+    def __init__(
+        self,
+        driver: Any = None,
+        wait_seconds: int = 10,
+        consent_timeout: float = 8.0,
+    ) -> None:
         if driver is None:
             options = webdriver.ChromeOptions()
             # A full desktop-width window: a narrow default can trigger a mobile layout
@@ -60,18 +73,34 @@ class SeleniumBrowser:
             driver = webdriver.Chrome(options=options)
         self._driver: Any = driver
         self._wait: Any = WebDriverWait(self._driver, wait_seconds)
+        self._consent_timeout = consent_timeout
 
     def login(self, email: str, password: str) -> None:
-        """Sign in, waiting for the form and tolerating login-page markup changes."""
+        """Sign in, dismissing the cookie banner and tolerating markup changes."""
         self._driver.get(_LOGIN_URL)
-        self._click_if_present(_CONSENT_LOCATORS)
+        self._dismiss_consent()
         self._wait.until(lambda _: self._find_first(_EMAIL_LOCATORS) is not None)
         self._type_into(_EMAIL_LOCATORS, email)
         self._type_into(_PASSWORD_LOCATORS, password)
         submit = self._find_first(_SUBMIT_LOCATORS)
         if submit is None:
             raise NoSuchElementException("Strava login submit button not found")
+        self._scroll_into_view(submit)
         submit.click()
+
+    def _dismiss_consent(self) -> None:
+        """Wait briefly for the cookie banner and accept it so it stops overlaying.
+
+        The fields are present but not interactable while the banner is up, so this is
+        the real unblocker. Best-effort: proceed if no banner appears within the window.
+        """
+        try:
+            WebDriverWait(self._driver, self._consent_timeout).until(
+                lambda _: self._find_first(_CONSENT_LOCATORS) is not None
+            )
+        except TimeoutException, WebDriverException:
+            return
+        self._click_if_present(_CONSENT_LOCATORS)
 
     def _find_first(self, locators: tuple[tuple[str, str], ...]) -> Any:
         for locator in locators:
@@ -80,10 +109,14 @@ class SeleniumBrowser:
                 return elements[0]
         return None
 
+    def _scroll_into_view(self, element: Any) -> None:
+        self._driver.execute_script("arguments[0].scrollIntoView(true)", element)
+
     def _type_into(self, locators: tuple[tuple[str, str], ...], text: str) -> None:
         field = self._find_first(locators)
         if field is None:
             raise NoSuchElementException(f"Strava login field not found: {locators}")
+        self._scroll_into_view(field)
         field.clear()
         field.send_keys(text)
 
