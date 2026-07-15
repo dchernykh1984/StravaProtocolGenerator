@@ -8,6 +8,7 @@ explicit save and on close; each generation archives the raw scraped data for re
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +48,7 @@ from app.site_api import SiteApiClient
 
 DATA_DIR = "data"
 HISTORY_DIR = "temp"
+LOG_DIR = "logs"
 ICON_PATH = str(Path(__file__).parent / "app.ico")
 _CONFIG_PATH = f"{DATA_DIR}/{CONFIG_NAME}"
 _ACTIONS = [a.value for a in HttpAction]
@@ -379,6 +381,9 @@ class MainWindow(QMainWindow):
 
         root.addLayout(self._build_action_buttons())
 
+        self._log_to_file = QCheckBox("Log to file")
+        root.addWidget(self._log_to_file)
+        self._log_file: Path | None = None
         self._log = QPlainTextEdit()
         self._log.setReadOnly(True)
         root.addWidget(self._log)
@@ -500,23 +505,37 @@ class MainWindow(QMainWindow):
         template = current.to_config() if current is not None else StageConfig()
         self._add_stage_tab(template, index=self._tabs.currentIndex() + offset)
 
+    def _append_log(self, message: str) -> None:
+        """Append a line to the on-screen log, mirroring it to a file when enabled."""
+        self._log.appendPlainText(message)
+        if self._log_to_file.isChecked():
+            self._write_log_line(message)
+
+    def _write_log_line(self, message: str) -> None:
+        if self._log_file is None:
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            self._log_file = Path(LOG_DIR) / f"session_{ts}.log"
+            self._log_file.parent.mkdir(parents=True, exist_ok=True)
+        with self._log_file.open("a", encoding="utf-8") as handle:
+            handle.write(message + "\n")
+
     def _on_delete_stage(self) -> None:
         if self._tabs.count() <= 1:
-            self._log.appendPlainText("At least one stage is required.")
+            self._append_log("At least one stage is required.")
             return
         self._tabs.removeTab(self._tabs.currentIndex())
 
     def _on_save(self) -> None:
         save_config(self.collect_config(), DATA_DIR, HISTORY_DIR)
-        self._log.appendPlainText("Config saved.")
+        self._append_log("Config saved.")
 
     def _on_generate(self, publish: bool) -> None:
         if self._worker is not None and self._worker.isRunning():
-            self._log.appendPlainText("A generation is already running.")
+            self._append_log("A generation is already running.")
             return
         config = self.collect_config()
         save_config(config, DATA_DIR, HISTORY_DIR)
-        self._log.appendPlainText("Generating...")
+        self._append_log("Generating...")
         self._worker = _GenerateWorker(config, publish)
         self._worker.done.connect(self._on_generation_done)
         self._worker.failed.connect(self._on_generation_failed)
@@ -525,18 +544,18 @@ class MainWindow(QMainWindow):
     def _on_generation_done(self, result: Any) -> None:
         generation: GenerationResult = result
         for error in generation.errors:
-            self._log.appendPlainText(f"! {error}")
+            self._append_log(f"! {error}")
         for output in generation.outputs:
             status = "published" if output.published else "local"
             if output.error:
                 status = f"publish failed: {output.error}"
-            self._log.appendPlainText(
+            self._append_log(
                 f"{output.kind}/{output.scope} {output.label}: {output.path} ({status})"
             )
-        self._log.appendPlainText("Done.")
+        self._append_log("Done.")
 
     def _on_generation_failed(self, message: str) -> None:
-        self._log.appendPlainText(f"Generation failed: {message}")
+        self._append_log(f"Generation failed: {message}")
 
     def closeEvent(self, event: Any) -> None:  # noqa: N802 - Qt override name
         reply = QMessageBox.question(
