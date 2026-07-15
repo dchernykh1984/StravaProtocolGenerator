@@ -62,6 +62,16 @@ def test_is_login_page_detects_the_login_form() -> None:
     assert is_login_page(_LEADERBOARD) is False
 
 
+def test_is_login_page_survives_field_id_changes() -> None:
+    # No email/password ids -- only input types and the session form action.
+    typed = '<form><input type="email"><input type="password"></form>'
+    assert is_login_page(typed) is True
+    session_form = '<form action="/session"><input type="password"></form>'
+    assert is_login_page(session_form) is True
+    # A results page has a password nowhere, so it is never a false positive.
+    assert is_login_page("<table><tr><td>time</td></tr></table>") is False
+
+
 def test_cookie_header_joins_named_cookies_and_skips_nameless() -> None:
     header = cookie_header(
         [{"name": "a", "value": "1"}, {"value": "skip"}, {"name": "b", "value": "2"}]
