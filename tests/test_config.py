@@ -28,6 +28,7 @@ def _rich_config() -> AppConfig:
                 name="Day 1",
                 segments=[SegmentConfig("111", {"filter": "club"})],
                 token="stage1-tok",
+                freeze_strava_data=True,
                 absolute_action=HttpAction.UPLOAD,
                 group_action=HttpAction.DELETE,
                 cup_column_label="D1",

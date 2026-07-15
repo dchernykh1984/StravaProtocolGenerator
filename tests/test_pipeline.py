@@ -1,7 +1,7 @@
 """End-to-end pipeline tests with a fake browser and fake site client."""
 
 from app.config import AppConfig, CupConfig, HttpAction, SegmentConfig, StageConfig
-from app.models import Category, Participant
+from app.models import Category, LeaderboardRow, Participant
 from app.pipeline import generate, generate_from_snapshot
 from app.site_api import ParticipantsResponse, SiteApiError
 
@@ -230,3 +230,65 @@ def test_generate_publish_error_recorded_on_output() -> None:
     result = generate(_config(), browser, client, writer=_capture_writer({}))
     uploaded = [o for o in result.outputs if o.scope == "absolute"]
     assert any(o.error == "upload down" for o in uploaded)
+
+
+def test_frozen_stage_reuses_previous_snapshot_without_scraping() -> None:
+    cfg = _config()
+    cfg.stages[0].freeze_strava_data = True
+    guest = LeaderboardRow(
+        athlete_name="Guest Rider",
+        athlete_id="999",
+        raw_result="4:30",
+        result_seconds=270.0,
+    )
+    previous = {"stages": [[[guest.to_dict()]]]}
+    # The browser would return a different rider; freezing must ignore it entirely.
+    browser = _FakeBrowser({"seg1": _page("777", "Fresh Scrape", "5:00")})
+    written: dict[str, str] = {}
+    result = generate(
+        cfg,
+        browser,
+        _FakeClient(_roster()),
+        writer=_capture_writer(written),
+        previous=previous,
+    )
+    joined = "\n".join(written.values())
+    assert "Guest Rider" in joined  # frozen row reused
+    assert "Fresh Scrape" not in joined  # no scraping happened
+    assert "Ivan Petrov" in joined  # roster still fetched fresh
+    assert result.raw_snapshot["stages"][0][0][0]["athlete_id"] == "999"
+
+
+def test_unfrozen_stage_scrapes_and_ignores_previous_snapshot() -> None:
+    cfg = _config()  # freeze_strava_data defaults to False
+    stale = LeaderboardRow(
+        athlete_name="Stale", athlete_id="999", raw_result="4:30", result_seconds=270.0
+    )
+    previous = {"stages": [[[stale.to_dict()]]]}
+    browser = _FakeBrowser({"seg1": _page("111", "Ivan Petrov", "5:00")})
+    written: dict[str, str] = {}
+    generate(
+        cfg,
+        browser,
+        _FakeClient(_roster()),
+        writer=_capture_writer(written),
+        previous=previous,
+    )
+    joined = "\n".join(written.values())
+    assert "Stale" not in joined  # the previous snapshot is ignored
+    assert "Ivan Petrov" in joined  # scraped fresh
+
+
+def test_frozen_stage_without_prior_data_falls_back_to_scraping() -> None:
+    cfg = _config()
+    cfg.stages[0].freeze_strava_data = True
+    browser = _FakeBrowser({"seg1": _page("111", "Ivan Petrov", "5:00")})
+    written: dict[str, str] = {}
+    generate(
+        cfg,
+        browser,
+        _FakeClient(_roster()),
+        writer=_capture_writer(written),
+        previous={},
+    )
+    assert "Ivan Petrov" in "\n".join(written.values())  # nothing to freeze -> scrape

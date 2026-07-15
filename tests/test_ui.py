@@ -181,6 +181,12 @@ def test_two_column_top_keeps_globals_and_cup_fields() -> None:
     assert collected.cup.token == "cup-token"
 
 
+def test_stage_freeze_checkbox_round_trips() -> None:
+    tab = mw.StageTab(StageConfig(freeze_strava_data=True))
+    assert tab.freeze_strava_data.isChecked()
+    assert tab.to_config().freeze_strava_data is True
+
+
 def test_stage_file_fields_are_file_pickers() -> None:
     tab = mw.StageTab(StageConfig())
     assert isinstance(tab.absolute_file, mw.FilePicker)

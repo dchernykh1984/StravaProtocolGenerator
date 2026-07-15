@@ -53,9 +53,14 @@ def test_load_config_non_dict_json_returns_default(tmp_path) -> None:
 
 def test_save_and_load_raw_data(tmp_path) -> None:
     snapshot = {"stages": [{"segments": [[{"athlete_id": "1"}]]}]}
-    path = save_raw_data(snapshot, tmp_path, timestamp="20260715_120000")
-    assert path.name == "rawdata_20260715_120000.json"
-    assert load_raw_data(path) == snapshot
+    data_dir, history_dir = tmp_path / "data", tmp_path / "temp"
+    current, version = save_raw_data(
+        snapshot, data_dir, history_dir, timestamp="20260715_120000"
+    )
+    assert current.name == "rawdata.json"
+    assert version.name == "rawdata_20260715_120000.json"
+    assert load_raw_data(current) == snapshot
+    assert load_raw_data(version) == snapshot
 
 
 def test_load_raw_data_missing_returns_empty(tmp_path) -> None:
@@ -63,8 +68,8 @@ def test_load_raw_data_missing_returns_empty(tmp_path) -> None:
 
 
 def test_list_snapshots_sorted(tmp_path) -> None:
-    save_raw_data({"a": 1}, tmp_path, timestamp="20260101_000000")
-    save_raw_data({"b": 2}, tmp_path, timestamp="20260102_000000")
+    save_raw_data({"a": 1}, tmp_path, tmp_path, timestamp="20260101_000000")
+    save_raw_data({"b": 2}, tmp_path, tmp_path, timestamp="20260102_000000")
     names = [p.name for p in list_snapshots(tmp_path)]
     assert names == ["rawdata_20260101_000000.json", "rawdata_20260102_000000.json"]
 
