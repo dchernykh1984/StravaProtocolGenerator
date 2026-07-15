@@ -198,7 +198,7 @@ class StageTab(QWidget):
         form.addRow("Feed to cup", self.rule)
         form.addRow("Date from (including)", self.date_from)
         form.addRow("Date to (including)", self.date_to)
-        form.addRow("Broadcast token", self.token)
+        form.addRow("Broadcast token (to Site URL)", self.token)
         form.addRow("", self.is_live)
         form.addRow("Stage label", self.stage_label)
         form.addRow("Absolute protocol", self.absolute_action)
