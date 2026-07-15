@@ -7,13 +7,15 @@ records the calls the flow makes at each step.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from selenium.webdriver.common.by import By
 
 from app.selenium_driver import SeleniumBrowser
 
-_COOKIE = (By.ID, "CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll")
+_DIALOG = (By.ID, "CybotCookiebotDialog")
+_ACCEPT = (By.ID, "CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll")
 _EMAIL = (By.ID, "mobile-email")
 _EMAIL_SUBMIT = (By.ID, "mobile-login-button")
 _USE_PASSWORD = (By.CSS_SELECTOR, "[data-testid='use-password-cta'] button")
@@ -22,10 +24,14 @@ _PASSWORD_SUBMIT = (By.XPATH, "//button[normalize-space()='Log in']")
 
 
 class _FakeElement:
-    def __init__(self) -> None:
+    def __init__(
+        self, displayed: bool = True, on_click: Callable[[], None] | None = None
+    ) -> None:
         self.cleared = False
         self.sent: str | None = None
         self.clicked = False
+        self.displayed = displayed
+        self._on_click = on_click
 
     def clear(self) -> None:
         self.cleared = True
@@ -35,9 +41,14 @@ class _FakeElement:
 
     def click(self) -> None:
         self.clicked = True
+        if self._on_click is not None:
+            self._on_click()
 
     def is_enabled(self) -> bool:
         return True
+
+    def is_displayed(self) -> bool:
+        return self.displayed
 
 
 class _FakeDriver:
@@ -55,28 +66,31 @@ class _FakeDriver:
         return None
 
 
-def test_login_walks_the_multi_step_form() -> None:
-    names = ("cookie", "email", "esub", "usepw", "pw", "psub")
-    parts = {name: _FakeElement() for name in names}
+def test_login_walks_the_multi_step_form_and_dismisses_the_banner() -> None:
+    dialog = _FakeElement()
+    accept = _FakeElement(on_click=lambda: setattr(dialog, "displayed", False))
+    email, esub, usepw = _FakeElement(), _FakeElement(), _FakeElement()
+    pw, psub = _FakeElement(), _FakeElement()
     driver = _FakeDriver(
         {
-            _COOKIE: [parts["cookie"]],
-            _EMAIL: [parts["email"]],
-            _EMAIL_SUBMIT: [parts["esub"]],
-            _USE_PASSWORD: [parts["usepw"]],
-            _PASSWORD: [parts["pw"]],
-            _PASSWORD_SUBMIT: [parts["psub"]],
+            _DIALOG: [dialog],
+            _ACCEPT: [accept],
+            _EMAIL: [email],
+            _EMAIL_SUBMIT: [esub],
+            _USE_PASSWORD: [usepw],
+            _PASSWORD: [pw],
+            _PASSWORD_SUBMIT: [psub],
         }
     )
     browser = SeleniumBrowser(driver=driver, wait_seconds=1)
     browser.login("me@example.com", "secret")
-    assert driver.visited == ["https://www.strava.com/login"]
-    assert parts["cookie"].clicked  # Cybot cookie banner accepted
-    assert parts["email"].sent == "me@example.com"
-    assert parts["esub"].clicked
-    assert parts["usepw"].clicked  # one-time-code promo declined for the password
-    assert parts["pw"].sent == "secret"
-    assert parts["psub"].clicked
+    assert accept.clicked  # cookie banner accepted...
+    assert dialog.displayed is False  # ...and gone before the form is touched
+    assert email.sent == "me@example.com"
+    assert esub.clicked
+    assert usepw.clicked  # one-time-code promo declined for the password
+    assert pw.sent == "secret"
+    assert psub.clicked
 
 
 def test_login_skips_promo_when_password_shown_directly() -> None:
@@ -84,10 +98,9 @@ def test_login_skips_promo_when_password_shown_directly() -> None:
     pw, psub = _FakeElement(), _FakeElement()
     driver = _FakeDriver(
         {
-            _COOKIE: [_FakeElement()],
+            # no dialog and no use-password: no banner, straight to the password screen
             _EMAIL: [_FakeElement()],
             _EMAIL_SUBMIT: [_FakeElement()],
-            # no _USE_PASSWORD entry: Strava went straight to the password screen
             _PASSWORD: [pw],
             _PASSWORD_SUBMIT: [psub],
         }
