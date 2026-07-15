@@ -40,9 +40,18 @@ def is_login_page(html: str) -> bool:
     """Whether ``html`` is Strava's login form rather than a signed-in page.
 
     An expired or missing session is answered with a redirect to the login page (HTTP
-    200, not 401/403), so the signal is the page content: its email and password inputs.
+    200, not 401/403), so the signal is the page content. Several markers are checked so
+    detection survives Strava revising the login field ids: a password input alongside
+    an email input or the login form's ``/session`` action.
     """
-    return 'id="email"' in html and 'id="password"' in html
+    has_password = any(
+        marker in html
+        for marker in ('id="password"', 'name="password"', 'type="password"')
+    )
+    has_email = any(
+        marker in html for marker in ('id="email"', 'name="email"', 'type="email"')
+    )
+    return has_password and (has_email or 'action="/session"' in html)
 
 
 def cookie_header(cookies: list[dict[str, Any]]) -> str:

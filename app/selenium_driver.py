@@ -12,6 +12,7 @@ from time import sleep
 from typing import Any
 
 from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException, WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.wait import WebDriverWait
@@ -20,6 +21,29 @@ _LOGIN_URL = "https://www.strava.com/login"
 _RESULTS = (By.XPATH, "//div[@id='results']/table")
 _NEXT_PAGE = (By.XPATH, "//li[@class='next_page']")
 _PAGE_SETTLE_SECONDS = 5
+
+# Strava renders the login form with JavaScript and revises its markup over time, so we
+# wait for the field to appear and try several locators (the ``type=`` ones survive id
+# and name changes) rather than depending on a single fixed id.
+_EMAIL_LOCATORS = (
+    (By.ID, "email"),
+    (By.NAME, "email"),
+    (By.CSS_SELECTOR, "input[type='email']"),
+)
+_PASSWORD_LOCATORS = (
+    (By.ID, "password"),
+    (By.NAME, "password"),
+    (By.CSS_SELECTOR, "input[type='password']"),
+)
+_SUBMIT_LOCATORS = (
+    (By.CSS_SELECTOR, "button[type='submit']"),
+    (By.ID, "login-button"),
+    (By.XPATH, "//button[contains(., 'Log In') or contains(., 'Login')]"),
+)
+_CONSENT_LOCATORS = (
+    (By.ID, "onetrust-accept-btn-handler"),
+    (By.CSS_SELECTOR, "button[aria-label='Accept']"),
+)
 
 
 class SeleniumBrowser:
@@ -30,10 +54,38 @@ class SeleniumBrowser:
         self._wait: Any = WebDriverWait(self._driver, wait_seconds)
 
     def login(self, email: str, password: str) -> None:
+        """Sign in, waiting for the form and tolerating login-page markup changes."""
         self._driver.get(_LOGIN_URL)
-        self._driver.find_element(By.ID, "email").send_keys(email)
-        self._driver.find_element(By.ID, "password").send_keys(password)
-        self._driver.find_element(By.XPATH, "//button[@type='submit']").click()
+        self._click_if_present(_CONSENT_LOCATORS)
+        self._wait.until(lambda _: self._find_first(_EMAIL_LOCATORS) is not None)
+        self._type_into(_EMAIL_LOCATORS, email)
+        self._type_into(_PASSWORD_LOCATORS, password)
+        submit = self._find_first(_SUBMIT_LOCATORS)
+        if submit is None:
+            raise NoSuchElementException("Strava login submit button not found")
+        submit.click()
+
+    def _find_first(self, locators: tuple[tuple[str, str], ...]) -> Any:
+        for locator in locators:
+            elements = self._driver.find_elements(*locator)
+            if elements:
+                return elements[0]
+        return None
+
+    def _type_into(self, locators: tuple[tuple[str, str], ...], text: str) -> None:
+        field = self._find_first(locators)
+        if field is None:
+            raise NoSuchElementException(f"Strava login field not found: {locators}")
+        field.clear()
+        field.send_keys(text)
+
+    def _click_if_present(self, locators: tuple[tuple[str, str], ...]) -> None:
+        element = self._find_first(locators)
+        if element is not None:
+            try:
+                element.click()
+            except WebDriverException:
+                pass  # a consent banner is best-effort; ignore if it will not dismiss
 
     def cookies(self) -> list[dict[str, Any]]:
         """Return the current session cookies (call after a successful login).
