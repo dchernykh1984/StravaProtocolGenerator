@@ -397,7 +397,6 @@ class MainWindow(QMainWindow):
             "unregistered_group_name": QLineEdit(),
             "output_dir": QLineEdit(),
         }
-        widgets["strava_password"].setEchoMode(QLineEdit.EchoMode.Password)
         self._template_file = FilePicker(existing=True)
         self._decimals = QSpinBox()
         self._decimals.setRange(0, 4)
