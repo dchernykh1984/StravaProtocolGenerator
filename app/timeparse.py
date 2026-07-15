@@ -1,8 +1,8 @@
-"""Parse Strava result-time strings to seconds and format seconds back to protocol times.
+"""Parse Strava result-time strings to seconds and format seconds to protocol times.
 
-Strava leaderboards render a rider's time as ``H:MM:SS``, ``M:SS`` or a bare ``SS`` count
-of seconds, optionally with decimal fraction (``M:SS.s``). Parsing normalises all of these
-to float seconds; formatting mirrors the FinishProtocolGenerator output (``H:MM:SS`` past an
+Strava leaderboards render a time as ``H:MM:SS``, ``M:SS`` or a bare ``SS`` seconds
+count, optionally with a decimal fraction (``M:SS.s``). Parsing normalises all of these
+to float seconds; formatting mirrors FinishProtocolGenerator output (``H:MM:SS`` past an
 hour, otherwise ``M:SS``), with a configurable number of decimal places.
 """
 
@@ -16,8 +16,8 @@ def parse_time(text: str) -> float | None:
 
     Accepts ``H:MM:SS``, ``M:SS`` and bare ``SS`` forms, each with an optional ``.frac``
     tail. Surrounding whitespace is ignored. Returns ``None`` for empty or unparsable
-    input (e.g. a placeholder dash) rather than raising, so a stray leaderboard cell does
-    not abort a whole scrape.
+    input (e.g. a placeholder dash) rather than raising, so a stray cell does not abort
+    the whole scrape.
     """
     if text is None:
         return None
@@ -38,11 +38,11 @@ def parse_time(text: str) -> float | None:
 
 
 def format_time(seconds: float | None, decimals: int = 0) -> str:
-    """Format float seconds as ``H:MM:SS`` / ``M:SS`` with ``decimals`` fractional digits.
+    """Format seconds as ``H:MM:SS`` / ``M:SS`` with ``decimals`` fractional digits.
 
-    ``None`` and negative values render as an empty string (a missing or invalid result).
-    ``decimals`` is clamped to ``[0, 4]`` to match the generator's cap. The hour field is
-    only shown once the time reaches an hour, so short segment times stay compact.
+    ``None`` and negative values render as an empty string (a missing or invalid time).
+    ``decimals`` is clamped to ``[0, 4]`` to match the generator's cap. The hour field
+    is shown only once the time reaches an hour, so short segment times stay compact.
     """
     if seconds is None or seconds < 0:
         return ""
