@@ -108,6 +108,28 @@ class SeleniumBrowser:
             self._dump_diagnostics()
             raise
 
+    def wait_for_manual_login(
+        self, timeout: float = 300.0, poll: float = 1.0
+    ) -> list[dict[str, Any]]:
+        """Open the login page and wait for the user to sign in by hand; return cookies.
+
+        Automating the credential entry trips Strava's login reCAPTCHA, so the human
+        signs in in the launched window. We poll for the durable "remember me" login
+        cookie (which lasts weeks with the box ticked) and hand the whole jar back.
+        """
+        self._driver.get(_LOGIN_URL)
+        self._dismiss_consent()
+        deadline = monotonic() + timeout
+        while monotonic() < deadline:
+            try:
+                jar = self._driver.get_cookies()
+            except WebDriverException:
+                break  # the window was closed
+            if any("remember" in cookie["name"] for cookie in jar):
+                return list(jar)
+            sleep(poll)
+        raise TimeoutError("timed out waiting for a manual Strava login")
+
     def _dump_diagnostics(self) -> None:
         """Save the page HTML and a screenshot so a login failure can be diagnosed.
 
