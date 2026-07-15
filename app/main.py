@@ -7,13 +7,15 @@ from __future__ import annotations
 
 import sys
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
-from app.main_window import MainWindow
+from app.main_window import ICON_PATH, MainWindow
 
 
 def main() -> int:
     app = QApplication(sys.argv)
+    app.setWindowIcon(QIcon(ICON_PATH))
     window = MainWindow()
     window.resize(760, 960)
     window.show()

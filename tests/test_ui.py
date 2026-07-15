@@ -10,11 +10,19 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from pathlib import Path
+
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from app import main_window as mw
 
 _app = QApplication.instance() or QApplication([])
+
+
+def test_app_icon_exists_and_loads() -> None:
+    assert Path(mw.ICON_PATH).exists()
+    assert not QIcon(mw.ICON_PATH).isNull()
 
 
 def test_tab_title_follows_stage_name() -> None:

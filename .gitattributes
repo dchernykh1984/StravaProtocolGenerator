@@ -7,3 +7,6 @@
 # (configured with --fix=lf) keeps fighting the checkout. `text=auto` lets Git
 # auto-detect which files are text.
 * text=auto eol=lf
+
+# Binary assets Git must never convert or diff.
+*.ico binary
