@@ -17,6 +17,7 @@ from PySide6.QtGui import QCloseEvent, QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from app import main_window as mw
+from app.config import StageConfig
 
 _app = QApplication.instance() or QApplication([])
 
@@ -46,6 +47,29 @@ def test_added_stage_tab_also_tracks_its_name() -> None:
     new_index = window._tabs.currentIndex()
     window._tabs.widget(new_index).name.setText("Day 2")
     assert window._tabs.tabText(new_index) == "Day 2"
+
+
+def test_stage_date_fields_are_calendar_pickers() -> None:
+    tab = mw.StageTab(StageConfig(date_from="2026-08-01", date_to="2026-08-02"))
+    assert isinstance(tab.date_from, mw.DateField)
+    assert tab.date_from.calendarPopup()
+    assert tab.date_from.iso() == "2026-08-01"
+    assert tab.date_to.iso() == "2026-08-02"
+
+
+def test_stage_dates_round_trip_through_config() -> None:
+    tab = mw.StageTab(StageConfig(date_from="2026-08-01", date_to="2026-08-02"))
+    config = tab.to_config()
+    assert config.date_from == "2026-08-01"
+    assert config.date_to == "2026-08-02"
+
+
+def test_stage_empty_dates_round_trip_to_empty_string() -> None:
+    tab = mw.StageTab(StageConfig())
+    assert tab.date_from.iso() == ""
+    config = tab.to_config()
+    assert config.date_from == ""
+    assert config.date_to == ""
 
 
 def test_close_confirmed_saves_and_accepts(monkeypatch: pytest.MonkeyPatch) -> None:
