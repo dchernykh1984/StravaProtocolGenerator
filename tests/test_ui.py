@@ -187,6 +187,26 @@ def test_file_picker_browse_cancel_keeps_value(monkeypatch: pytest.MonkeyPatch) 
     assert picker.text() == "keep.html"
 
 
+def test_template_field_is_an_open_file_picker() -> None:
+    window = mw.MainWindow()
+    assert isinstance(window._template_file, mw.FilePicker)
+    assert window._template_file._existing is True
+
+
+def test_open_file_picker_browse_reads_existing_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    picker = mw.FilePicker(existing=True)
+    monkeypatch.setattr(
+        mw.QFileDialog, "getOpenFileName", lambda *a, **k: ("tpl.html", "*.html")
+    )
+    monkeypatch.setattr(
+        mw.QFileDialog, "getSaveFileName", lambda *a, **k: ("WRONG", "*.html")
+    )
+    picker._browse()
+    assert picker.text() == "tpl.html"
+
+
 def test_stage_file_paths_round_trip_through_config() -> None:
     tab = mw.StageTab(StageConfig(absolute_file="a.html", group_file="g.html"))
     config = tab.to_config()
