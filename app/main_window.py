@@ -117,13 +117,16 @@ class DateField(QDateEdit):
 
 
 class FilePicker(QWidget):
-    """A line edit paired with a Browse button that opens a save-file chooser.
+    """A line edit paired with a Browse button that opens a file chooser.
 
     Exposes ``text``/``setText`` so it drops in wherever a ``QLineEdit`` held a path.
+    ``existing`` chooses an existing file to read (e.g. a template) rather than a save
+    target.
     """
 
-    def __init__(self, value: str = "") -> None:
+    def __init__(self, value: str = "", *, existing: bool = False) -> None:
         super().__init__()
+        self._existing = existing
         row = QHBoxLayout(self)
         row.setContentsMargins(0, 0, 0, 0)
         self.edit = QLineEdit(value)
@@ -139,9 +142,12 @@ class FilePicker(QWidget):
         self.edit.setText(value)
 
     def _browse(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Pick file", self.edit.text(), "*.html"
+        dialog = (
+            QFileDialog.getOpenFileName
+            if self._existing
+            else QFileDialog.getSaveFileName
         )
+        path, _ = dialog(self, "Pick file", self.edit.text(), "*.html")
         if path:
             self.edit.setText(path)
 
@@ -370,10 +376,10 @@ class MainWindow(QMainWindow):
             "strava_password": QLineEdit(),
             "roster_token": QLineEdit(),
             "unregistered_group_name": QLineEdit(),
-            "template_file": QLineEdit(),
             "output_dir": QLineEdit(),
         }
         widgets["strava_password"].setEchoMode(QLineEdit.EchoMode.Password)
+        self._template_file = FilePicker(existing=True)
         self._decimals = QSpinBox()
         self._decimals.setRange(0, 4)
         self._globals_layout.addRow("Site URL", widgets["site_url"])
@@ -384,7 +390,7 @@ class MainWindow(QMainWindow):
             "Unregistered group", widgets["unregistered_group_name"]
         )
         self._globals_layout.addRow("Decimals", self._decimals)
-        self._globals_layout.addRow("Template file", widgets["template_file"])
+        self._globals_layout.addRow("Template file", self._template_file)
         self._globals_layout.addRow("Output dir", widgets["output_dir"])
         return widgets
 
@@ -407,12 +413,9 @@ class MainWindow(QMainWindow):
         local_btn.clicked.connect(lambda: self._on_generate(publish=False))
         save_btn = QPushButton("Save config")
         save_btn.clicked.connect(self._on_save)
-        template_btn = QPushButton("Pick template")
-        template_btn.clicked.connect(self._on_pick_template)
         row.addWidget(generate_btn)
         row.addWidget(local_btn)
         row.addWidget(save_btn)
-        row.addWidget(template_btn)
         row.addStretch(1)
         return row
 
@@ -427,7 +430,7 @@ class MainWindow(QMainWindow):
             roster_token=self._globals["roster_token"].text().strip(),
             unregistered_group_name=self._globals["unregistered_group_name"].text(),
             decimals=self._decimals.value(),
-            template_file=self._globals["template_file"].text().strip(),
+            template_file=self._template_file.text().strip(),
             output_dir=self._globals["output_dir"].text().strip() or "output",
             stages=stages or [StageConfig()],
             cup=self._cup.to_config(),
@@ -440,7 +443,7 @@ class MainWindow(QMainWindow):
         self._globals["roster_token"].setText(config.roster_token)
         self._globals["unregistered_group_name"].setText(config.unregistered_group_name)
         self._decimals.setValue(config.decimals)
-        self._globals["template_file"].setText(config.template_file)
+        self._template_file.setText(config.template_file)
         self._globals["output_dir"].setText(config.output_dir)
         self._tabs.clear()
         for stage in config.stages:
@@ -480,11 +483,6 @@ class MainWindow(QMainWindow):
             self._log.appendPlainText("At least one stage is required.")
             return
         self._tabs.removeTab(self._tabs.currentIndex())
-
-    def _on_pick_template(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Pick template", "", "*.html")
-        if path:
-            self._globals["template_file"].setText(path)
 
     def _on_save(self) -> None:
         save_config(self.collect_config(), DATA_DIR, HISTORY_DIR)
