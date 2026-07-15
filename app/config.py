@@ -192,6 +192,7 @@ class AppConfig:
     roster_token: str = ""
     unregistered_group_name: str = "Not registered"
     decimals: int = 0
+    show_strava_links: bool = False
     template_file: str = ""
     output_dir: str = "output"
     stages: list[StageConfig] = field(default_factory=lambda: [StageConfig()])
@@ -210,6 +211,7 @@ class AppConfig:
             "roster_token": self.roster_token,
             "unregistered_group_name": self.unregistered_group_name,
             "decimals": self.decimals,
+            "show_strava_links": self.show_strava_links,
             "template_file": self.template_file,
             "output_dir": self.output_dir,
             "stages": [s.to_dict() for s in self.stages],
@@ -229,6 +231,7 @@ class AppConfig:
             roster_token=d("roster_token"),
             unregistered_group_name=d("unregistered_group_name"),
             decimals=d("decimals"),
+            show_strava_links=d("show_strava_links"),
             template_file=d("template_file"),
             output_dir=d("output_dir"),
             stages=stages or [StageConfig()],

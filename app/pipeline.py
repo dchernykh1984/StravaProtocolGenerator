@@ -206,6 +206,7 @@ def _render_stage_outputs(
         result_label=stage.result_label,
         show_place=stage.show_place,
         show_name=stage.show_name,
+        show_links=config.show_strava_links,
     )
     generic: list[StageEntry | CupEntry] = list(entries)
     abs_html = render_stage_protocol(
@@ -265,6 +266,7 @@ def _render_cup_outputs(
         total_label=cup.total_label,
         show_place=cup.show_place,
         show_name=cup.show_name,
+        show_links=config.show_strava_links,
     )
     generic: list[StageEntry | CupEntry] = list(cup_entries)
     abs_html = render_cup_protocol(

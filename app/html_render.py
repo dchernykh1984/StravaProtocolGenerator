@@ -87,6 +87,7 @@ class StageColumns:
     result_label: str = "Result"
     show_place: bool = True
     show_name: bool = True
+    show_links: bool = False
 
 
 @dataclass
@@ -98,10 +99,16 @@ class CupColumns:
     total_label: str = "Total"
     show_place: bool = True
     show_name: bool = True
+    show_links: bool = False
 
 
 def _place_text(place: int | None) -> str:
     return str(place) if place is not None else ""
+
+
+def _stage_url(entry: CupEntry, index: int) -> str:
+    """The effort link behind a cup entry's value in stage ``index`` (empty if none)."""
+    return entry.stage_urls[index] if index < len(entry.stage_urls) else ""
 
 
 def _row_style(styles: HtmlStyles, index: int) -> str:
@@ -114,6 +121,17 @@ def _header_cell(label: str) -> str:
 
 def _cell(value: str) -> str:
     return f"<td ALIGN=center>{html.escape(value)}</td>"
+
+
+def _link_cell(value: str, url: str) -> str:
+    """A centered cell whose text links to ``url`` (a plain cell when no ``url``)."""
+    if not url:
+        return _cell(value)
+    safe_url = html.escape(url, quote=True)
+    return (
+        f'<td ALIGN=center><a href="{safe_url}" target="_blank" '
+        f'rel="noopener">{html.escape(value)}</a></td>'
+    )
 
 
 def _open_document(buf: StringIO, title: str, styles: HtmlStyles) -> None:
@@ -159,8 +177,12 @@ def render_stage_protocol(
             if columns.show_place:
                 buf.write(_cell(_place_text(item.place)))
             if columns.show_name:
-                buf.write(_cell(entry.competitor.name))
-            buf.write(_cell(format_time(entry.value, decimals)) + "</tr>\n")
+                name = entry.competitor.name
+                url = entry.competitor.athlete_url if columns.show_links else ""
+                buf.write(_link_cell(name, url))
+            result = format_time(entry.value, decimals)
+            result_url = entry.result_url if columns.show_links else ""
+            buf.write(_link_cell(result, result_url) + "</tr>\n")
         buf.write("</table>\n<BR>\n")
     buf.write("</body>\n</html>\n")
     return buf.getvalue()
@@ -198,9 +220,12 @@ def render_cup_protocol(
             if columns.show_place:
                 buf.write(_cell(_place_text(item.place)))
             if columns.show_name:
-                buf.write(_cell(entry.competitor.name))
-            for value in entry.stage_values:
-                buf.write(_cell(format_time(value, decimals)))
+                name = entry.competitor.name
+                url = entry.competitor.athlete_url if columns.show_links else ""
+                buf.write(_link_cell(name, url))
+            for j, value in enumerate(entry.stage_values):
+                stage_url = _stage_url(entry, j) if columns.show_links else ""
+                buf.write(_link_cell(format_time(value, decimals), stage_url))
             buf.write(_cell(format_time(entry.total, decimals)) + "</tr>\n")
         buf.write("</table>\n<BR>\n")
     buf.write("</body>\n</html>\n")

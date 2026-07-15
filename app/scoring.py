@@ -14,11 +14,12 @@ callers.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 
-from app.matching import MatchResult
-from app.models import Participant
+from app.leaderboard import build_athlete_url
+from app.matching import MatchResult, extract_strava_id
+from app.models import LeaderboardRow, Participant
 
 
 class StageRule(StrEnum):
@@ -41,6 +42,7 @@ class Competitor:
     name: str
     group_name: str
     is_registered: bool
+    athlete_url: str = ""
 
 
 @dataclass
@@ -50,6 +52,7 @@ class StageEntry:
     competitor: Competitor
     segment_values: list[float | None]
     value: float | None
+    result_url: str = ""
 
 
 @dataclass
@@ -59,6 +62,7 @@ class CupEntry:
     competitor: Competitor
     stage_values: list[float | None]
     total: float | None
+    stage_urls: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -80,6 +84,23 @@ def combine_times(values: list[float | None]) -> float | None:
     return sum(v for v in values if v is not None)
 
 
+def _athlete_url(participant: Participant, rows: list[LeaderboardRow]) -> str:
+    """A registered rider's profile URL: from a scraped row, else their registration."""
+    for row in rows:
+        if row.athlete_url:
+            return row.athlete_url
+    strava_id = extract_strava_id(participant.additional_info)
+    return build_athlete_url(strava_id) if strava_id else ""
+
+
+def _result_url(rows: list[LeaderboardRow | None]) -> str:
+    """The first available effort (activity) link across a stage's segment rows."""
+    for row in rows:
+        if row is not None and row.attempt_url:
+            return row.attempt_url
+    return ""
+
+
 def build_stage_entries(
     segment_matches: list[MatchResult],
     participants: list[Participant],
@@ -89,20 +110,16 @@ def build_stage_entries(
 
     Every registered participant appears (even with no time, per the requirement that
     the protocol lists all registered riders). Riders who matched no registration are
-    grouped by Strava athlete id into the ``unregistered_group_name`` group.
+    grouped by Strava athlete id into the ``unregistered_group_name`` group. Each entry
+    carries the rider's profile link and the effort link behind their stage result.
     """
     n = len(segment_matches)
     entries: list[StageEntry] = []
 
     for participant in participants:
-        seg_values = [
-            (
-                m.results[participant.id].result_seconds
-                if participant.id in m.results
-                else None
-            )
-            for m in segment_matches
-        ]
+        seg_rows = [m.results.get(participant.id) for m in segment_matches]
+        seg_values = [row.result_seconds if row else None for row in seg_rows]
+        matched = [row for row in seg_rows if row is not None]
         entries.append(
             StageEntry(
                 competitor=Competitor(
@@ -110,14 +127,16 @@ def build_stage_entries(
                     name=participant.display_name,
                     group_name=participant.category_name,
                     is_registered=True,
+                    athlete_url=_athlete_url(participant, matched),
                 ),
                 segment_values=seg_values,
                 value=combine_times(seg_values),
+                result_url=_result_url(seg_rows),
             )
         )
 
     order: list[str] = []
-    per_segment: dict[str, dict[int, object]] = {}
+    per_segment: dict[str, dict[int, LeaderboardRow]] = {}
     names: dict[str, str] = {}
     for i, match in enumerate(segment_matches):
         for row in match.unregistered:
@@ -126,9 +145,11 @@ def build_stage_entries(
                 per_segment[aid] = {}
                 names[aid] = row.athlete_name
                 order.append(aid)
-            per_segment[aid].setdefault(i, row.result_seconds)
+            per_segment[aid].setdefault(i, row)
     for aid in order:
-        seg_values = [per_segment[aid].get(i) for i in range(n)]  # type: ignore[misc]
+        seg_rows = [per_segment[aid].get(i) for i in range(n)]
+        seg_values = [row.result_seconds if row else None for row in seg_rows]
+        matched = [row for row in seg_rows if row is not None]
         entries.append(
             StageEntry(
                 competitor=Competitor(
@@ -136,9 +157,11 @@ def build_stage_entries(
                     name=names[aid],
                     group_name=unregistered_group_name,
                     is_registered=False,
+                    athlete_url=matched[0].athlete_url if matched else "",
                 ),
-                segment_values=seg_values,  # type: ignore[arg-type]
-                value=combine_times(seg_values),  # type: ignore[arg-type]
+                segment_values=seg_values,
+                value=combine_times(seg_values),
+                result_url=_result_url(seg_rows),
             )
         )
     return entries
@@ -175,14 +198,17 @@ def build_cup_entries(
     order: list[str] = []
     competitors: dict[str, Competitor] = {}
     values: dict[str, dict[int, float | None]] = {}
+    urls: dict[str, dict[int, str]] = {}
     for i, entries in enumerate(per_stage_entries):
         for entry in entries:
             key = entry.competitor.key
             if key not in competitors:
                 competitors[key] = entry.competitor
                 values[key] = {}
+                urls[key] = {}
                 order.append(key)
             values[key][i] = stage_contribution(entry, rules[i])
+            urls[key][i] = entry.result_url
     cup: list[CupEntry] = []
     for key in order:
         stage_values = [values[key].get(i) for i in range(n)]
@@ -191,6 +217,7 @@ def build_cup_entries(
                 competitor=competitors[key],
                 stage_values=stage_values,
                 total=combine_cup(stage_values, cup_rule),
+                stage_urls=[urls[key].get(i, "") for i in range(n)],
             )
         )
     return cup

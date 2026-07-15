@@ -274,6 +274,13 @@ def test_auto_refresh_toggle_starts_and_stops_timer() -> None:
     assert not window._timer.isActive()
 
 
+def test_strava_links_checkbox_round_trips() -> None:
+    window = mw.MainWindow()
+    window.apply_config(AppConfig(show_strava_links=True, cup=CupConfig()))
+    assert window._show_strava_links.isChecked()
+    assert window.collect_config().show_strava_links is True
+
+
 def test_strava_password_is_shown_as_plain_text() -> None:
     window = mw.MainWindow()
     field = window._globals["strava_password"]

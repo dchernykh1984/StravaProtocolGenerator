@@ -432,6 +432,7 @@ class MainWindow(QMainWindow):
         self._template_file = FilePicker(existing=True)
         self._decimals = QSpinBox()
         self._decimals.setRange(0, 4)
+        self._show_strava_links = QCheckBox("Add Strava links")
         self._globals_layout.addRow("Site URL", widgets["site_url"])
         self._globals_layout.addRow("Strava login", widgets["strava_login"])
         self._globals_layout.addRow("Strava password", widgets["strava_password"])
@@ -440,6 +441,7 @@ class MainWindow(QMainWindow):
             "Unregistered group", widgets["unregistered_group_name"]
         )
         self._globals_layout.addRow("Decimals", self._decimals)
+        self._globals_layout.addRow("", self._show_strava_links)
         self._globals_layout.addRow("Template file", self._template_file)
         self._globals_layout.addRow("Output dir", widgets["output_dir"])
         return widgets
@@ -489,6 +491,7 @@ class MainWindow(QMainWindow):
             roster_token=self._globals["roster_token"].text().strip(),
             unregistered_group_name=self._globals["unregistered_group_name"].text(),
             decimals=self._decimals.value(),
+            show_strava_links=self._show_strava_links.isChecked(),
             template_file=self._template_file.text().strip(),
             output_dir=self._globals["output_dir"].text().strip() or "output",
             stages=stages or [StageConfig()],
@@ -503,6 +506,7 @@ class MainWindow(QMainWindow):
         self._globals["roster_token"].setText(config.roster_token)
         self._globals["unregistered_group_name"].setText(config.unregistered_group_name)
         self._decimals.setValue(config.decimals)
+        self._show_strava_links.setChecked(config.show_strava_links)
         self._template_file.setText(config.template_file)
         self._globals["output_dir"].setText(config.output_dir)
         self._tabs.clear()
