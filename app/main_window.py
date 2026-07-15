@@ -11,11 +11,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QDate, QThread, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QDateEdit,
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
@@ -80,6 +81,33 @@ def _segments_to_text(segments: list[SegmentConfig]) -> str:
     return "\n".join(lines)
 
 
+class DateField(QDateEdit):
+    """A calendar date picker that also represents an empty (open) collection bound.
+
+    A stage window may be open on either side, so the minimum date doubles as "no
+    date": it shows a blank special value and round-trips to an empty ISO string, while
+    any real date round-trips as ``YYYY-MM-DD``.
+    """
+
+    _ISO = "yyyy-MM-dd"
+    _EMPTY = QDate(1900, 1, 1)
+
+    def __init__(self, iso: str = "") -> None:
+        super().__init__()
+        self.setDisplayFormat(self._ISO)
+        self.setCalendarPopup(True)
+        self.setMinimumDate(self._EMPTY)
+        self.setSpecialValueText(" ")
+        self.set_iso(iso)
+
+    def set_iso(self, iso: str) -> None:
+        parsed = QDate.fromString(iso, self._ISO)
+        self.setDate(parsed if parsed.isValid() else self._EMPTY)
+
+    def iso(self) -> str:
+        return "" if self.date() == self._EMPTY else self.date().toString(self._ISO)
+
+
 class _GenerateWorker(QThread):
     """Runs one generation off the UI thread so scraping does not freeze the window."""
 
@@ -116,8 +144,8 @@ class StageTab(QWidget):
         self.name = QLineEdit(stage.name)
         self.segments = QPlainTextEdit(_segments_to_text(stage.segments))
         self.rule = _combo(_STAGE_RULES, stage.rule.value)
-        self.date_from = QLineEdit(stage.date_from)
-        self.date_to = QLineEdit(stage.date_to)
+        self.date_from = DateField(stage.date_from)
+        self.date_to = DateField(stage.date_to)
         self.token = QLineEdit(stage.token)
         self.is_live = QCheckBox("Live broadcast")
         self.is_live.setChecked(stage.is_live)
@@ -159,8 +187,8 @@ class StageTab(QWidget):
             name=self.name.text(),
             segments=_parse_segments(self.segments.toPlainText()),
             rule=StageRule(self.rule.currentText()),
-            date_from=self.date_from.text().strip(),
-            date_to=self.date_to.text().strip(),
+            date_from=self.date_from.iso(),
+            date_to=self.date_to.iso(),
             token=self.token.text().strip(),
             is_live=self.is_live.isChecked(),
             stage_label=self.stage_label.text(),
