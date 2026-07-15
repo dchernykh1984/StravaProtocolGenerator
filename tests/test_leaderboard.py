@@ -111,6 +111,16 @@ def test_filter_by_date_excludes_before_from() -> None:
     assert filter_by_date(rows, date_from=date(2025, 8, 7)) == []
 
 
+def test_filter_by_date_bounds_are_inclusive() -> None:
+    rows = parse_leaderboard_html(_LEADERBOARD)
+    # the Aug 5 row survives an upper bound sitting exactly on its date
+    upper_edge = filter_by_date(rows, None, date(2025, 8, 5))
+    assert [r.athlete_id for r in upper_edge] == ["111"]
+    # the Aug 6 row survives a lower bound sitting exactly on its date
+    lower_edge = filter_by_date(rows, date(2025, 8, 6))
+    assert [r.athlete_id for r in lower_edge] == ["222"]
+
+
 def test_filter_by_date_open_bounds_keeps_all() -> None:
     rows = parse_leaderboard_html(_LEADERBOARD)
     assert len(filter_by_date(rows)) == 2
