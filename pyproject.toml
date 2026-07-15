@@ -15,6 +15,7 @@ dev = [
     "pytest>=9.0.3,<10",
     "pytest-xdist>=3.8.0,<4",
     "pytest-asyncio>=1.4.0,<2",
+    "pytest-cov>=7.1.0,<8",
 ]
 
 [tool.uv]
@@ -48,9 +49,12 @@ max-complexity = 10
 [tool.mypy]
 ignore_missing_imports = true
 
+[tool.coverage.run]
+parallel = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
-addopts = "-n auto"
+addopts = "-n auto --cov=app --cov-fail-under=90 --cov-report=term-missing"
 markers = ["debug: mark test for local debugging and run it in isolation"]
