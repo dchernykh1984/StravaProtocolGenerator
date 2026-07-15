@@ -59,15 +59,41 @@ def test_stage_date_fields_are_calendar_pickers() -> None:
 
 def test_stage_date_labels_mark_bounds_inclusive() -> None:
     tab = mw.StageTab(StageConfig())
-    form = tab.layout()
-    assert form.labelForField(tab.date_from).text() == "Date from (including)"
-    assert form.labelForField(tab.date_to).text() == "Date to (including)"
+    assert tab.field_label(tab.date_from) == "Date from (including)"
+    assert tab.field_label(tab.date_to) == "Date to (including)"
 
 
 def test_stage_broadcast_token_label_links_to_site_url() -> None:
     tab = mw.StageTab(StageConfig())
-    label = tab.layout().labelForField(tab.token).text()
-    assert label == "Broadcast token (to Site URL)"
+    assert tab.field_label(tab.token) == "Broadcast token (to Site URL)"
+
+
+def test_two_column_stage_keeps_all_fields() -> None:
+    stage = StageConfig(
+        name="Day 7",
+        date_from="2026-08-01",
+        date_to="2026-08-02",
+        token="bcast",
+        stage_label="D7",
+        absolute_file="abs.html",
+        group_file="grp.html",
+        cup_column_label="col",
+        place_label="Pos",
+        name_label="Rider",
+        result_label="Time",
+    )
+    config = mw.StageTab(stage).to_config()
+    assert config.name == "Day 7"
+    assert config.date_from == "2026-08-01"
+    assert config.date_to == "2026-08-02"
+    assert config.token == "bcast"
+    assert config.stage_label == "D7"
+    assert config.absolute_file == "abs.html"
+    assert config.group_file == "grp.html"
+    assert config.cup_column_label == "col"
+    assert config.place_label == "Pos"
+    assert config.name_label == "Rider"
+    assert config.result_label == "Time"
 
 
 def test_stage_dates_round_trip_through_config() -> None:

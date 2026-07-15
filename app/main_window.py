@@ -170,7 +170,6 @@ class StageTab(QWidget):
 
     def __init__(self, stage: StageConfig) -> None:
         super().__init__()
-        form = QFormLayout(self)
         self.name = QLineEdit(stage.name)
         self.segments = QPlainTextEdit(_segments_to_text(stage.segments))
         self.rule = _combo(_STAGE_RULES, stage.rule.value)
@@ -193,24 +192,46 @@ class StageTab(QWidget):
         self.show_name = QCheckBox("Show name")
         self.show_name.setChecked(stage.show_name)
 
-        form.addRow("Stage name", self.name)
-        form.addRow("Segments (id [key=value])", self.segments)
-        form.addRow("Feed to cup", self.rule)
-        form.addRow("Date from (including)", self.date_from)
-        form.addRow("Date to (including)", self.date_to)
-        form.addRow("Broadcast token (to Site URL)", self.token)
-        form.addRow("", self.is_live)
-        form.addRow("Stage label", self.stage_label)
-        form.addRow("Absolute protocol", self.absolute_action)
-        form.addRow("Group protocol", self.group_action)
-        form.addRow("Absolute file", self.absolute_file)
-        form.addRow("Group file", self.group_file)
-        form.addRow("Cup column label", self.cup_column_label)
-        form.addRow("Place label", self.place_label)
-        form.addRow("Name label", self.name_label)
-        form.addRow("Result label", self.result_label)
-        form.addRow("", self.show_place)
-        form.addRow("", self.show_name)
+        # Two form columns halve the stage's height so the window fits on screen.
+        columns = QHBoxLayout(self)
+        left = QVBoxLayout()
+        right = QVBoxLayout()
+        self._left_form = QFormLayout()
+        self._right_form = QFormLayout()
+        left.addLayout(self._left_form)
+        left.addStretch(1)
+        right.addLayout(self._right_form)
+        right.addStretch(1)
+        columns.addLayout(left, stretch=1)
+        columns.addLayout(right, stretch=1)
+
+        self._left_form.addRow("Stage name", self.name)
+        self._left_form.addRow("Segments (id [key=value])", self.segments)
+        self._left_form.addRow("Feed to cup", self.rule)
+        self._left_form.addRow("Date from (including)", self.date_from)
+        self._left_form.addRow("Date to (including)", self.date_to)
+        self._left_form.addRow("Broadcast token (to Site URL)", self.token)
+        self._left_form.addRow("", self.is_live)
+        self._left_form.addRow("Stage label", self.stage_label)
+
+        self._right_form.addRow("Absolute protocol", self.absolute_action)
+        self._right_form.addRow("Group protocol", self.group_action)
+        self._right_form.addRow("Absolute file", self.absolute_file)
+        self._right_form.addRow("Group file", self.group_file)
+        self._right_form.addRow("Cup column label", self.cup_column_label)
+        self._right_form.addRow("Place label", self.place_label)
+        self._right_form.addRow("Name label", self.name_label)
+        self._right_form.addRow("Result label", self.result_label)
+        self._right_form.addRow("", self.show_place)
+        self._right_form.addRow("", self.show_name)
+
+    def field_label(self, widget: QWidget) -> str:
+        """Return the text of the form label paired with ``widget`` (for tests/UX)."""
+        for form in (self._left_form, self._right_form):
+            label = form.labelForField(widget)
+            if label is not None:
+                return label.text()
+        return ""
 
     def to_config(self) -> StageConfig:
         return StageConfig(
