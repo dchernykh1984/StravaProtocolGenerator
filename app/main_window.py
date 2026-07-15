@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMainWindow,
+    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QSpinBox,
@@ -424,5 +425,15 @@ class MainWindow(QMainWindow):
         self._log.appendPlainText(f"Generation failed: {message}")
 
     def closeEvent(self, event: Any) -> None:  # noqa: N802 - Qt override name
+        reply = QMessageBox.question(
+            self,
+            "Exit",
+            "Are you sure you want to exit?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            event.ignore()
+            return
         save_config(self.collect_config(), DATA_DIR, HISTORY_DIR)
         super().closeEvent(event)

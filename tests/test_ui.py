@@ -12,8 +12,9 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from pathlib import Path
 
-from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QApplication
+import pytest
+from PySide6.QtGui import QCloseEvent, QIcon
+from PySide6.QtWidgets import QApplication, QMessageBox
 
 from app import main_window as mw
 
@@ -45,3 +46,32 @@ def test_added_stage_tab_also_tracks_its_name() -> None:
     new_index = window._tabs.currentIndex()
     window._tabs.widget(new_index).name.setText("Day 2")
     assert window._tabs.tabText(new_index) == "Day 2"
+
+
+def test_close_confirmed_saves_and_accepts(monkeypatch: pytest.MonkeyPatch) -> None:
+    window = mw.MainWindow()
+    monkeypatch.setattr(
+        mw.QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+    )
+    saved: list[tuple] = []
+    monkeypatch.setattr(mw, "save_config", lambda *a, **k: saved.append(a))
+    event = QCloseEvent()
+    event.ignore()
+    window.closeEvent(event)
+    assert saved
+    assert event.isAccepted()
+
+
+def test_close_declined_ignores_and_does_not_save(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    window = mw.MainWindow()
+    monkeypatch.setattr(
+        mw.QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No
+    )
+    saved: list[tuple] = []
+    monkeypatch.setattr(mw, "save_config", lambda *a, **k: saved.append(a))
+    event = QCloseEvent()
+    window.closeEvent(event)
+    assert not saved
+    assert not event.isAccepted()
