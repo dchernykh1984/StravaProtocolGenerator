@@ -358,7 +358,16 @@ class MainWindow(QMainWindow):
         tab = StageTab(stage)
         at = self._tabs.count() if index is None else index
         self._tabs.insertTab(at, tab, stage.name or f"Stage {at + 1}")
+        tab.name.textChanged.connect(
+            lambda text, t=tab: self._update_tab_title(t, text)
+        )
         self._tabs.setCurrentIndex(at)
+
+    def _update_tab_title(self, tab: StageTab, text: str) -> None:
+        """Keep a stage's tab label in sync with its edited name."""
+        index = self._tabs.indexOf(tab)
+        if index >= 0:
+            self._tabs.setTabText(index, text or f"Stage {index + 1}")
 
     # -- actions -------------------------------------------------------------
 
