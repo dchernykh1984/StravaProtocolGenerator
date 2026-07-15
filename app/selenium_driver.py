@@ -8,11 +8,11 @@ resolves the driver itself (Selenium Manager), so no chromedriver binary is vend
 
 from __future__ import annotations
 
-from time import sleep
+from time import monotonic, sleep
 from typing import Any
 
 from selenium import webdriver
-from selenium.common.exceptions import TimeoutException, WebDriverException
+from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.wait import WebDriverWait
@@ -26,6 +26,7 @@ _PAGE_SETTLE_SECONDS = 5
 # precise selector first and generic fallbacks after, so it survives Strava revising the
 # hashed class names. The steps: accept cookies (they block the form), enter the email
 # and continue, decline the one-time-code promo, then enter the password and submit.
+_COOKIE_DIALOG = ((By.ID, "CybotCookiebotDialog"),)
 _COOKIE_ACCEPT = (
     (By.ID, "CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll"),
     (By.XPATH, "//button[normalize-space()='Accept All']"),
@@ -86,24 +87,25 @@ class SeleniumBrowser:
         """
         self._driver.get(_LOGIN_URL)
         self._dismiss_consent()
-        self._fill(self._wait_present(_EMAIL_LOCATORS), email)
-        self._click(self._wait_enabled(_EMAIL_SUBMIT))
+        self._fill(self._wait_interactable(_EMAIL_LOCATORS), email)
+        self._click(self._wait_interactable(_EMAIL_SUBMIT, require_enabled=True))
         self._skip_otp_promo()
-        self._fill(self._wait_present(_PASSWORD_LOCATORS), password)
-        self._click(self._wait_enabled(_PASSWORD_SUBMIT))
+        self._fill(self._wait_interactable(_PASSWORD_LOCATORS), password)
+        self._click(self._wait_interactable(_PASSWORD_SUBMIT, require_enabled=True))
 
     def _dismiss_consent(self) -> None:
-        """Wait briefly for the cookie banner and accept it so it stops overlaying.
+        """Accept the cookie banner and wait for it to disappear before using the form.
 
-        Best-effort: proceed if no banner appears within the window.
+        Clicking once is not enough: the banner slides in (so an early click misses) and
+        out (so the fields stay covered for a moment), leaving them "not interactable".
+        Re-click until the dialog is gone, or give up if it never showed / never leaves.
         """
-        try:
-            WebDriverWait(self._driver, self._consent_timeout).until(
-                lambda _: self._find_first(_COOKIE_ACCEPT) is not None
-            )
-        except TimeoutException, WebDriverException:
-            return
-        self._click_if_present(_COOKIE_ACCEPT)
+        deadline = monotonic() + self._consent_timeout
+        while self._is_visible(_COOKIE_DIALOG):
+            self._click_if_present(_COOKIE_ACCEPT)
+            if not self._is_visible(_COOKIE_DIALOG) or monotonic() >= deadline:
+                return
+            sleep(0.3)
 
     def _skip_otp_promo(self) -> None:
         """After the email step Strava may promote one-time codes; keep the password."""
@@ -115,15 +117,21 @@ class SeleniumBrowser:
         )
         self._click_if_present(_USE_PASSWORD)
 
-    def _wait_present(self, locators: tuple[tuple[str, str], ...]) -> Any:
-        self._wait.until(lambda _: self._find_first(locators) is not None)
+    def _wait_interactable(
+        self, locators: tuple[tuple[str, str], ...], require_enabled: bool = False
+    ) -> Any:
+        def ready(_: Any) -> bool:
+            element = self._find_first(locators)
+            if element is None or not element.is_displayed():
+                return False
+            return element.is_enabled() if require_enabled else True
+
+        self._wait.until(ready)
         return self._find_first(locators)
 
-    def _wait_enabled(self, locators: tuple[tuple[str, str], ...]) -> Any:
-        self._wait.until(
-            lambda _: (e := self._find_first(locators)) is not None and e.is_enabled()
-        )
-        return self._find_first(locators)
+    def _is_visible(self, locators: tuple[tuple[str, str], ...]) -> bool:
+        element = self._find_first(locators)
+        return element is not None and element.is_displayed()
 
     def _find_first(self, locators: tuple[tuple[str, str], ...]) -> Any:
         for locator in locators:
