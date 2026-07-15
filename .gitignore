@@ -103,3 +103,7 @@ desktop.ini
 
 tmp/
 temp/
+
+# ===== App data (holds the Strava password; never commit) =====
+
+data/
