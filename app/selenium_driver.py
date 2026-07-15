@@ -31,14 +31,15 @@ _COOKIE_ACCEPT = (
     (By.ID, "CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll"),
     (By.XPATH, "//button[normalize-space()='Accept All']"),
 )
+# Strava renders both a mobile and a desktop copy of each field (only one shown at a
+# time), so these match by shared attributes and ``_find_first`` picks the visible one.
 _EMAIL_LOCATORS = (
-    (By.ID, "mobile-email"),
     (By.CSS_SELECTOR, "input[name='email'][type='email']"),
     (By.CSS_SELECTOR, "[data-cy='email']"),
 )
 _EMAIL_SUBMIT = (
-    (By.ID, "mobile-login-button"),
     (By.CSS_SELECTOR, "[data-cy='login-button']"),
+    (By.CSS_SELECTOR, "button[type='submit']"),
 )
 _USE_PASSWORD = (
     (By.CSS_SELECTOR, "[data-testid='use-password-cta'] button"),
@@ -134,11 +135,23 @@ class SeleniumBrowser:
         return element is not None and element.is_displayed()
 
     def _find_first(self, locators: tuple[tuple[str, str], ...]) -> Any:
+        """The first *visible* match, falling back to the first present element.
+
+        Strava keeps a hidden mobile copy of each field alongside the shown desktop one;
+        returning a present-but-hidden copy would then wait forever to interact with it.
+        """
+        fallback: Any = None
         for locator in locators:
-            elements = self._driver.find_elements(*locator)
-            if elements:
-                return elements[0]
-        return None
+            for element in self._driver.find_elements(*locator):
+                try:
+                    visible = element.is_displayed()
+                except WebDriverException:
+                    visible = False
+                if visible:
+                    return element
+                if fallback is None:
+                    fallback = element
+        return fallback
 
     def _scroll_into_view(self, element: Any) -> None:
         self._driver.execute_script("arguments[0].scrollIntoView(true)", element)

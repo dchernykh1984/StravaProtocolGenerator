@@ -16,8 +16,8 @@ from app.selenium_driver import SeleniumBrowser
 
 _DIALOG = (By.ID, "CybotCookiebotDialog")
 _ACCEPT = (By.ID, "CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll")
-_EMAIL = (By.ID, "mobile-email")
-_EMAIL_SUBMIT = (By.ID, "mobile-login-button")
+_EMAIL = (By.CSS_SELECTOR, "input[name='email'][type='email']")
+_EMAIL_SUBMIT = (By.CSS_SELECTOR, "[data-cy='login-button']")
 _USE_PASSWORD = (By.CSS_SELECTOR, "[data-testid='use-password-cta'] button")
 _PASSWORD = (By.CSS_SELECTOR, "input[name='password'][type='password']")
 _PASSWORD_SUBMIT = (By.XPATH, "//button[normalize-space()='Log in']")
@@ -69,13 +69,16 @@ class _FakeDriver:
 def test_login_walks_the_multi_step_form_and_dismisses_the_banner() -> None:
     dialog = _FakeElement()
     accept = _FakeElement(on_click=lambda: setattr(dialog, "displayed", False))
+    # Strava ships a hidden mobile copy of the email field beside the visible desktop
+    # one; the flow must fill the visible copy, not the hidden first match.
+    hidden_email = _FakeElement(displayed=False)
     email, esub, usepw = _FakeElement(), _FakeElement(), _FakeElement()
     pw, psub = _FakeElement(), _FakeElement()
     driver = _FakeDriver(
         {
             _DIALOG: [dialog],
             _ACCEPT: [accept],
-            _EMAIL: [email],
+            _EMAIL: [hidden_email, email],
             _EMAIL_SUBMIT: [esub],
             _USE_PASSWORD: [usepw],
             _PASSWORD: [pw],
@@ -86,7 +89,8 @@ def test_login_walks_the_multi_step_form_and_dismisses_the_banner() -> None:
     browser.login("me@example.com", "secret")
     assert accept.clicked  # cookie banner accepted...
     assert dialog.displayed is False  # ...and gone before the form is touched
-    assert email.sent == "me@example.com"
+    assert hidden_email.sent is None  # the hidden mobile copy is skipped
+    assert email.sent == "me@example.com"  # the visible copy is filled
     assert esub.clicked
     assert usepw.clicked  # one-time-code promo declined for the password
     assert pw.sent == "secret"
