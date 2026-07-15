@@ -20,7 +20,6 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
-    QLabel,
     QLineEdit,
     QMainWindow,
     QMessageBox,
@@ -59,6 +58,15 @@ def _combo(values: list[str], current: str) -> QComboBox:
     box.addItems(values)
     box.setCurrentText(current)
     return box
+
+
+def _field_with_checkbox(field: QWidget, checkbox: QCheckBox) -> QHBoxLayout:
+    """Pack a field and a trailing checkbox onto one form row to save height."""
+    row = QHBoxLayout()
+    row.setContentsMargins(0, 0, 0, 0)
+    row.addWidget(field, stretch=1)
+    row.addWidget(checkbox)
+    return row
 
 
 def _parse_segments(text: str) -> list[SegmentConfig]:
@@ -282,18 +290,17 @@ class CupPanel(QWidget):
 
         form.addRow("Cup name", self.name)
         form.addRow("Combine rule", self.rule)
-        form.addRow("Overall token", self.token)
-        form.addRow("", self.is_live)
+        form.addRow("Overall token", _field_with_checkbox(self.token, self.is_live))
         form.addRow("Stage label", self.stage_label)
         form.addRow("Absolute protocol", self.absolute_action)
         form.addRow("Group protocol", self.group_action)
         form.addRow("Absolute file", self.absolute_file)
         form.addRow("Group file", self.group_file)
-        form.addRow("Place label", self.place_label)
-        form.addRow("Name label", self.name_label)
+        form.addRow(
+            "Place label", _field_with_checkbox(self.place_label, self.show_place)
+        )
+        form.addRow("Name label", _field_with_checkbox(self.name_label, self.show_name))
         form.addRow("Total label", self.total_label)
-        form.addRow("", self.show_place)
-        form.addRow("", self.show_name)
 
     def to_config(self) -> CupConfig:
         return CupConfig(
@@ -334,7 +341,6 @@ class MainWindow(QMainWindow):
         left.addLayout(self._globals_layout)
         left.addStretch(1)
         right = QVBoxLayout()
-        right.addWidget(QLabel("Cup"))
         self._cup = CupPanel(CupConfig())
         right.addWidget(self._cup)
         right.addStretch(1)

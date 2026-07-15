@@ -147,6 +147,30 @@ def test_cup_file_fields_are_file_pickers() -> None:
     assert isinstance(panel.group_file, mw.FilePicker)
 
 
+def test_cup_fields_survive_combined_rows() -> None:
+    cup = CupConfig(
+        name="Grand Cup",
+        token="cup-tok",
+        is_live=False,
+        stage_label="GC",
+        place_label="Pos",
+        name_label="Rider",
+        total_label="Sum",
+        show_place=False,
+        show_name=False,
+    )
+    result = mw.CupPanel(cup).to_config()
+    assert result.name == "Grand Cup"
+    assert result.token == "cup-tok"
+    assert result.is_live is False
+    assert result.stage_label == "GC"
+    assert result.place_label == "Pos"
+    assert result.name_label == "Rider"
+    assert result.total_label == "Sum"
+    assert result.show_place is False
+    assert result.show_name is False
+
+
 def test_file_picker_browse_sets_chosen_path(monkeypatch: pytest.MonkeyPatch) -> None:
     picker = mw.FilePicker()
     monkeypatch.setattr(
