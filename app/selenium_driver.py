@@ -8,6 +8,8 @@ resolves the driver itself (Selenium Manager), so no chromedriver binary is vend
 
 from __future__ import annotations
 
+from datetime import datetime
+from pathlib import Path
 from time import monotonic, sleep
 from typing import Any
 
@@ -64,6 +66,7 @@ class SeleniumBrowser:
         driver: Any = None,
         wait_seconds: int = 10,
         consent_timeout: float = 8.0,
+        diagnostics_dir: str | None = None,
     ) -> None:
         if driver is None:
             options = webdriver.ChromeOptions()
@@ -72,10 +75,17 @@ class SeleniumBrowser:
             # on-screen and interactable.
             options.add_argument("--window-size=1920,1080")
             options.add_argument("--start-maximized")
+            # Reduce Strava's automation detection: hide the webdriver flag and the
+            # "controlled by automated software" banner (best-effort, not a captcha
+            # bypass -- Strava's login reCAPTCHA may still reject an automated sign-in).
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            options.add_experimental_option("useAutomationExtension", False)
             driver = webdriver.Chrome(options=options)
         self._driver: Any = driver
         self._wait: Any = WebDriverWait(self._driver, wait_seconds)
         self._consent_timeout = consent_timeout
+        self._diagnostics_dir = diagnostics_dir
 
     def login(self, email: str, password: str) -> None:
         """Sign in through Strava's multi-step, cookie-gated login form.
@@ -86,13 +96,36 @@ class SeleniumBrowser:
         JavaScript, so every step waits for its control to appear (and to be enabled --
         the submit buttons stay disabled until their field is filled).
         """
-        self._driver.get(_LOGIN_URL)
-        self._dismiss_consent()
-        self._fill(self._wait_interactable(_EMAIL_LOCATORS), email)
-        self._click(self._wait_interactable(_EMAIL_SUBMIT, require_enabled=True))
-        self._skip_otp_promo()
-        self._fill(self._wait_interactable(_PASSWORD_LOCATORS), password)
-        self._click(self._wait_interactable(_PASSWORD_SUBMIT, require_enabled=True))
+        try:
+            self._driver.get(_LOGIN_URL)
+            self._dismiss_consent()
+            self._fill(self._wait_interactable(_EMAIL_LOCATORS), email)
+            self._click(self._wait_interactable(_EMAIL_SUBMIT, require_enabled=True))
+            self._skip_otp_promo()
+            self._fill(self._wait_interactable(_PASSWORD_LOCATORS), password)
+            self._click(self._wait_interactable(_PASSWORD_SUBMIT, require_enabled=True))
+        except Exception:
+            self._dump_diagnostics()
+            raise
+
+    def _dump_diagnostics(self) -> None:
+        """Save the page HTML and a screenshot so a login failure can be diagnosed.
+
+        Strava keeps changing its login markup, so on any failure this leaves the exact
+        page behind (in ``diagnostics_dir``) instead of only an opaque error message.
+        """
+        if not self._diagnostics_dir:
+            return
+        directory = Path(self._diagnostics_dir)
+        try:
+            directory.mkdir(parents=True, exist_ok=True)
+            stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            (directory / f"login_failure_{stamp}.html").write_text(
+                self._driver.page_source, encoding="utf-8"
+            )
+            self._driver.save_screenshot(str(directory / f"login_failure_{stamp}.png"))
+        except OSError, WebDriverException:
+            pass  # diagnostics are best-effort; never mask the real login error
 
     def _dismiss_consent(self) -> None:
         """Accept the cookie banner and wait for it to disappear before using the form.

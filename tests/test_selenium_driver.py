@@ -8,8 +8,11 @@ records the calls the flow makes at each step.
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
+import pytest
+from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.by import By
 
 from app.selenium_driver import SeleniumBrowser
@@ -55,6 +58,7 @@ class _FakeDriver:
     def __init__(self, elements: dict[tuple[Any, str], list[_FakeElement]]) -> None:
         self._elements = elements
         self.visited: list[str] = []
+        self.page_source = "<html>FAKE PAGE</html>"
 
     def get(self, url: str) -> None:
         self.visited.append(url)
@@ -64,6 +68,10 @@ class _FakeDriver:
 
     def execute_script(self, script: str, *args: Any) -> None:
         return None
+
+    def save_screenshot(self, path: str) -> bool:
+        Path(path).write_bytes(b"PNG")
+        return True
 
 
 def test_login_walks_the_multi_step_form_and_dismisses_the_banner() -> None:
@@ -114,3 +122,16 @@ def test_login_skips_promo_when_password_shown_directly() -> None:
     assert not usepw.clicked
     assert pw.sent == "pw123"
     assert psub.clicked
+
+
+def test_login_failure_saves_page_source_and_screenshot(tmp_path) -> None:
+    driver = _FakeDriver({})  # nothing to find -> the email step times out
+    browser = SeleniumBrowser(
+        driver=driver, wait_seconds=1, diagnostics_dir=str(tmp_path)
+    )
+    with pytest.raises(WebDriverException):
+        browser.login("a@b.c", "pw")
+    htmls = list(tmp_path.glob("login_failure_*.html"))
+    pngs = list(tmp_path.glob("login_failure_*.png"))
+    assert htmls and pngs
+    assert "FAKE PAGE" in htmls[0].read_text(encoding="utf-8")
