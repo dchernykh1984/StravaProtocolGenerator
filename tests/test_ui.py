@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import QDate
 from PySide6.QtGui import QCloseEvent, QIcon
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication, QLineEdit, QMessageBox
 
 from app import main_window as mw
 from app.config import AppConfig, CupConfig, StageConfig
@@ -231,6 +231,12 @@ def test_file_picker_browse_cancel_keeps_value(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(mw.QFileDialog, "getSaveFileName", lambda *a, **k: ("", ""))
     picker._browse()
     assert picker.text() == "keep.html"
+
+
+def test_strava_password_is_shown_as_plain_text() -> None:
+    window = mw.MainWindow()
+    field = window._globals["strava_password"]
+    assert field.echoMode() == QLineEdit.EchoMode.Normal
 
 
 def test_template_field_is_an_open_file_picker() -> None:
