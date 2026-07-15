@@ -17,6 +17,7 @@ from typing import Any
 from app.config import AppConfig
 
 CONFIG_NAME = "config.json"
+RAWDATA_NAME = "rawdata.json"
 
 
 def _timestamp() -> str:
@@ -67,14 +68,21 @@ def load_config(path: str | Path) -> AppConfig:
 
 def save_raw_data(
     snapshot: dict[str, Any],
+    data_dir: str | Path,
     history_dir: str | Path,
     timestamp: str | None = None,
-) -> Path:
-    """Archive one generation's raw scraped data as a timestamped JSON snapshot."""
+) -> tuple[Path, Path]:
+    """Write the current raw snapshot and a timestamped history copy.
+
+    Mirrors ``save_config``: ``data/rawdata.json`` is the latest snapshot (which frozen
+    stages reuse instead of re-scraping) and ``temp/rawdata_<ts>.json`` keeps history.
+    """
+    current = Path(data_dir) / RAWDATA_NAME
+    _write_json(current, snapshot)
     ts = timestamp or _timestamp()
-    path = Path(history_dir) / f"rawdata_{ts}.json"
-    _write_json(path, snapshot)
-    return path
+    version = Path(history_dir) / f"rawdata_{ts}.json"
+    _write_json(version, snapshot)
+    return current, version
 
 
 def load_raw_data(path: str | Path) -> dict[str, Any]:

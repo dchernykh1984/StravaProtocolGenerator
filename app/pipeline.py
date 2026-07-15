@@ -369,14 +369,44 @@ def _snapshot(
     }
 
 
+def _stage_rows(
+    stage: StageConfig,
+    index: int,
+    previous_stages: list[Any],
+    browser: Browser,
+) -> list[list[LeaderboardRow]]:
+    """Scrape a stage, or reuse its rows from ``previous_stages`` when frozen.
+
+    A frozen stage keeps the Strava data captured earlier (so a later day's scrape does
+    not overwrite it), but only if that data exists -- otherwise it scrapes as usual.
+    """
+    if stage.freeze_strava_data and index < len(previous_stages):
+        return [
+            [LeaderboardRow.from_dict(row) for row in segment]
+            for segment in previous_stages[index]
+        ]
+    date_from = _parse_iso_date(stage.date_from)
+    date_to = _parse_iso_date(stage.date_to)
+    return [
+        scrape_segment(browser, segment, date_from, date_to)
+        for segment in stage.segments
+    ]
+
+
 def generate(
     config: AppConfig,
     browser: Browser,
     client: SiteClient,
     writer: Writer = _default_writer,
     publish: bool = True,
+    previous: dict[str, Any] | None = None,
 ) -> GenerationResult:
-    """Run a live generation: roster, scrape stages, render, publish, and snapshot."""
+    """Run a live generation: roster, scrape stages, render, publish, and snapshot.
+
+    The roster is always fetched fresh, so late registrations (and riders who never
+    registered but rode) still surface; ``previous`` supplies the last snapshot whose
+    rows frozen stages reuse instead of re-scraping.
+    """
     result = GenerationResult()
     participants: list[Participant] = []
     categories: list[str] = []
@@ -387,15 +417,11 @@ def generate(
     except SiteApiError as exc:
         result.errors.append(f"roster fetch failed: {exc}")
 
-    stages_rows: list[list[list[LeaderboardRow]]] = []
-    for stage in config.stages:
-        date_from = _parse_iso_date(stage.date_from)
-        date_to = _parse_iso_date(stage.date_to)
-        seg_rows = [
-            scrape_segment(browser, segment, date_from, date_to)
-            for segment in stage.segments
-        ]
-        stages_rows.append(seg_rows)
+    previous_stages = (previous or {}).get("stages", [])
+    stages_rows: list[list[list[LeaderboardRow]]] = [
+        _stage_rows(stage, i, previous_stages, browser)
+        for i, stage in enumerate(config.stages)
+    ]
 
     result.outputs = _render_all(
         config,

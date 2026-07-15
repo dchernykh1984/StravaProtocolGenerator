@@ -57,6 +57,7 @@ class StageConfig:
     rule: StageRule = StageRule.TIME
     date_from: str = ""
     date_to: str = ""
+    freeze_strava_data: bool = False
     token: str = ""
     is_live: bool = True
     stage_label: str = ""
@@ -78,6 +79,7 @@ class StageConfig:
             "rule": self.rule.value,
             "date_from": self.date_from,
             "date_to": self.date_to,
+            "freeze_strava_data": self.freeze_strava_data,
             "token": self.token,
             "is_live": self.is_live,
             "stage_label": self.stage_label,
@@ -103,6 +105,7 @@ class StageConfig:
             rule=StageRule(data.get("rule", StageRule.TIME.value)),
             date_from=d("date_from"),
             date_to=d("date_to"),
+            freeze_strava_data=d("freeze_strava_data"),
             token=d("token"),
             is_live=d("is_live"),
             stage_label=d("stage_label"),

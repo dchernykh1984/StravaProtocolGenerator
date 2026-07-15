@@ -34,7 +34,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.backup import CONFIG_NAME, load_config, save_config, save_raw_data
+from app.backup import (
+    CONFIG_NAME,
+    RAWDATA_NAME,
+    load_config,
+    load_raw_data,
+    save_config,
+    save_raw_data,
+)
 from app.config import (
     AppConfig,
     CupConfig,
@@ -53,6 +60,7 @@ HISTORY_DIR = "temp"
 LOG_DIR = "logs"
 ICON_PATH = str(Path(__file__).parent / "app.ico")
 _CONFIG_PATH = f"{DATA_DIR}/{CONFIG_NAME}"
+_RAWDATA_PATH = f"{DATA_DIR}/{RAWDATA_NAME}"
 _ACTIONS = [a.value for a in HttpAction]
 _STAGE_RULES = [r.value for r in StageRule]
 _CUP_RULES = [r.value for r in CupRule]
@@ -185,12 +193,13 @@ class _GenerateWorker(QThread):
     def __init__(self, config: AppConfig) -> None:
         super().__init__()
         self._config = config
+        self._previous = load_raw_data(_RAWDATA_PATH)
 
     def run(self) -> None:
         try:
             client = SiteApiClient(self._config.site_url)
             result = self._generate_authenticated(client)
-            save_raw_data(result.raw_snapshot, HISTORY_DIR)
+            save_raw_data(result.raw_snapshot, DATA_DIR, HISTORY_DIR)
             self.done.emit(result)
         except Exception as exc:  # report any failure back to the UI log
             self.failed.emit(str(exc))
@@ -199,16 +208,21 @@ class _GenerateWorker(QThread):
         """Scrape with saved cookies; log in once (and re-cache) only when needed.
 
         Each protocol's own action (Nothing/Upload/Delete) decides what reaches the
-        site, so generation always runs the publish path.
+        site, so generation always runs the publish path. Frozen stages reuse the
+        previous snapshot, so a run with every stage frozen never touches the browser.
         """
         if self._config.strava_cookies:
             try:
                 browser = HttpBrowser(self._config.strava_cookies)
-                return generate(self._config, browser, client, publish=True)
+                return generate(
+                    self._config, browser, client, publish=True, previous=self._previous
+                )
             except StravaAuthError:
                 pass  # session expired -> log in again and refresh the cookies below
         browser = self._login_and_capture()
-        return generate(self._config, browser, client, publish=True)
+        return generate(
+            self._config, browser, client, publish=True, previous=self._previous
+        )
 
     def _login_and_capture(self) -> HttpBrowser:
         """Log in with a real browser once, then scrape over its cookies via HTTP.
@@ -238,6 +252,8 @@ class StageTab(QWidget):
         self.token = QLineEdit(stage.token)
         self.is_live = QCheckBox("Live broadcast")
         self.is_live.setChecked(stage.is_live)
+        self.freeze_strava_data = QCheckBox("Freeze Strava data")
+        self.freeze_strava_data.setChecked(stage.freeze_strava_data)
         self.stage_label = QLineEdit(stage.stage_label)
         self.absolute_action = _combo(_ACTIONS, stage.absolute_action.value)
         self.group_action = _combo(_ACTIONS, stage.group_action.value)
@@ -272,6 +288,7 @@ class StageTab(QWidget):
         self._left_form.addRow("Date to (including)", self.date_to)
         self._left_form.addRow("Broadcast token (to Site URL)", self.token)
         self._left_form.addRow("", self.is_live)
+        self._left_form.addRow("", self.freeze_strava_data)
         self._left_form.addRow("Stage label", self.stage_label)
 
         self._right_form.addRow("Absolute protocol", self.absolute_action)
@@ -300,6 +317,7 @@ class StageTab(QWidget):
             rule=StageRule(self.rule.currentText()),
             date_from=self.date_from.iso(),
             date_to=self.date_to.iso(),
+            freeze_strava_data=self.freeze_strava_data.isChecked(),
             token=self.token.text().strip(),
             is_live=self.is_live.isChecked(),
             stage_label=self.stage_label.text(),
