@@ -1,0 +1,433 @@
+"""Tie the pieces together: roster -> scrape -> match -> score -> render -> publish.
+
+Everything external is injected (browser, site client, file writer), so a whole
+generation runs under test without a network or a disk. ``generate`` scrapes live and
+archives the raw rows; ``generate_from_snapshot`` replays an archived snapshot so a
+protocol can be rebuilt after Strava stops serving that day's efforts. Both share the
+build/render/publish core, so live and replayed runs produce identical protocols.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import date
+from pathlib import Path
+from typing import Any, Protocol
+
+from app.config import AppConfig, CupConfig, HttpAction, StageConfig
+from app.html_render import (
+    CupColumns,
+    HtmlStyles,
+    StageColumns,
+    load_template,
+    render_cup_protocol,
+    render_stage_protocol,
+)
+from app.matching import match_rows_to_participants
+from app.models import LeaderboardRow, Participant
+from app.scoring import (
+    CupEntry,
+    Ranked,
+    StageEntry,
+    build_cup_entries,
+    build_stage_entries,
+    rank_entries,
+)
+from app.scraper import Browser, scrape_segment
+from app.site_api import ParticipantsResponse, SiteApiError
+
+Writer = Callable[[str, str], None]
+
+
+class SiteClient(Protocol):
+    """The subset of ``SiteApiClient`` the pipeline uses (lets tests pass a fake)."""
+
+    def fetch_participants(self, token: str) -> ParticipantsResponse: ...
+
+    def upload_protocol(
+        self,
+        token: str,
+        protocol_type: str,
+        html_path: str,
+        is_live: bool = ...,
+        stage_label: str = ...,
+    ) -> None: ...
+
+    def delete_protocol(self, token: str, protocol_type: str) -> None: ...
+
+
+def _default_writer(path: str, content: str) -> None:
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(content, encoding="utf-8")
+
+
+@dataclass
+class ProtocolOutput:
+    """One rendered protocol: where it was written and whether it was published."""
+
+    kind: str  # "stage" or "cup"
+    scope: str  # "absolute" or "group"
+    label: str
+    path: str
+    published: bool = False
+    error: str = ""
+
+
+@dataclass
+class GenerationResult:
+    """The outcome of a run: written protocols, the raw snapshot, and any errors."""
+
+    outputs: list[ProtocolOutput] = field(default_factory=list)
+    raw_snapshot: dict[str, Any] = field(default_factory=dict)
+    errors: list[str] = field(default_factory=list)
+
+
+def _parse_iso_date(text: str) -> date | None:
+    try:
+        return date.fromisoformat(text) if text else None
+    except ValueError:
+        return None
+
+
+def _safe_filename(name: str) -> str:
+    keep = [c if c.isalnum() or c in "-_" else "_" for c in name.strip()]
+    return "".join(keep) or "protocol"
+
+
+def _group_and_rank(
+    entries: list[StageEntry | CupEntry], group_order: list[str]
+) -> list[tuple[str, list[Ranked]]]:
+    """Split entries into groups, order groups by ``group_order``, rank within each."""
+    groups: dict[str, list[StageEntry | CupEntry]] = {}
+    seen: list[str] = []
+    for entry in entries:
+        name = entry.competitor.group_name
+        if name not in groups:
+            groups[name] = []
+            seen.append(name)
+        groups[name].append(entry)
+    ordered = [g for g in group_order if g in groups]
+    ordered += [g for g in seen if g not in group_order]
+    return [(name, rank_entries(groups[name])) for name in ordered]
+
+
+def _rank_all(entries: list[StageEntry | CupEntry]) -> list[tuple[str, list[Ranked]]]:
+    return [("", rank_entries(entries))]
+
+
+def _styles(config: AppConfig) -> HtmlStyles:
+    if config.template_file:
+        loaded = load_template(config.template_file)
+        if loaded is not None:
+            return loaded
+    return HtmlStyles()
+
+
+def _stage_paths(config: AppConfig, stage: StageConfig) -> tuple[str, str]:
+    base = Path(config.output_dir)
+    abs_file = stage.absolute_file or f"{_safe_filename(stage.name)}_absolute.html"
+    grp_file = stage.group_file or f"{_safe_filename(stage.name)}_group.html"
+    return str(base / abs_file), str(base / grp_file)
+
+
+def _cup_paths(config: AppConfig) -> tuple[str, str]:
+    base = Path(config.output_dir)
+    cup = config.cup
+    abs_file = cup.absolute_file or f"{_safe_filename(cup.name)}_absolute.html"
+    grp_file = cup.group_file or f"{_safe_filename(cup.name)}_group.html"
+    return str(base / abs_file), str(base / grp_file)
+
+
+def _publish(
+    client: SiteClient,
+    token: str,
+    protocol_type: str,
+    path: str,
+    action: HttpAction,
+    is_live: bool,
+    stage_label: str,
+    output: ProtocolOutput,
+) -> None:
+    """Apply a protocol's publish action, recording any failure on ``output``."""
+    if action is HttpAction.NOTHING or not token:
+        return
+    try:
+        if action is HttpAction.UPLOAD:
+            client.upload_protocol(token, protocol_type, path, is_live, stage_label)
+        else:
+            client.delete_protocol(token, protocol_type)
+        output.published = action is HttpAction.UPLOAD
+    except SiteApiError as exc:
+        output.error = str(exc)
+
+
+def _emit(
+    writer: Writer,
+    kind: str,
+    scope: str,
+    label: str,
+    path: str,
+    html: str,
+    client: SiteClient | None,
+    token: str,
+    action: HttpAction,
+    is_live: bool,
+    stage_label: str,
+) -> ProtocolOutput:
+    """Write one protocol locally and, when publishing, push it to the site."""
+    protocol_type = "absolute" if scope == "absolute" else "group"
+    writer(path, html)
+    output = ProtocolOutput(kind=kind, scope=scope, label=label, path=path)
+    if client is not None:
+        _publish(
+            client, token, protocol_type, path, action, is_live, stage_label, output
+        )
+    return output
+
+
+def _stage_group_order(config: AppConfig, categories: list[str]) -> list[str]:
+    return [*categories, config.unregistered_group_name]
+
+
+def _render_stage_outputs(
+    config: AppConfig,
+    stage: StageConfig,
+    entries: list[StageEntry],
+    categories: list[str],
+    styles: HtmlStyles,
+    writer: Writer,
+    client: SiteClient | None,
+) -> list[ProtocolOutput]:
+    columns = StageColumns(
+        place_label=stage.place_label,
+        name_label=stage.name_label,
+        result_label=stage.result_label,
+        show_place=stage.show_place,
+        show_name=stage.show_name,
+    )
+    generic: list[StageEntry | CupEntry] = list(entries)
+    abs_html = render_stage_protocol(
+        stage.name, _rank_all(generic), styles, columns, config.decimals
+    )
+    grp_html = render_stage_protocol(
+        stage.name,
+        _group_and_rank(generic, _stage_group_order(config, categories)),
+        styles,
+        columns,
+        config.decimals,
+    )
+    abs_path, grp_path = _stage_paths(config, stage)
+    return [
+        _emit(
+            writer,
+            "stage",
+            "absolute",
+            stage.name,
+            abs_path,
+            abs_html,
+            client,
+            stage.token,
+            stage.absolute_action,
+            stage.is_live,
+            stage.stage_label,
+        ),
+        _emit(
+            writer,
+            "stage",
+            "group",
+            stage.name,
+            grp_path,
+            grp_html,
+            client,
+            stage.token,
+            stage.group_action,
+            stage.is_live,
+            stage.stage_label,
+        ),
+    ]
+
+
+def _render_cup_outputs(
+    config: AppConfig,
+    cup_entries: list[CupEntry],
+    stage_labels: list[str],
+    categories: list[str],
+    styles: HtmlStyles,
+    writer: Writer,
+    client: SiteClient | None,
+) -> list[ProtocolOutput]:
+    cup: CupConfig = config.cup
+    columns = CupColumns(
+        place_label=cup.place_label,
+        name_label=cup.name_label,
+        total_label=cup.total_label,
+        show_place=cup.show_place,
+        show_name=cup.show_name,
+    )
+    generic: list[StageEntry | CupEntry] = list(cup_entries)
+    abs_html = render_cup_protocol(
+        cup.name, _rank_all(generic), stage_labels, styles, columns, config.decimals
+    )
+    grp_html = render_cup_protocol(
+        cup.name,
+        _group_and_rank(generic, _stage_group_order(config, categories)),
+        stage_labels,
+        styles,
+        columns,
+        config.decimals,
+    )
+    abs_path, grp_path = _cup_paths(config)
+    return [
+        _emit(
+            writer,
+            "cup",
+            "absolute",
+            cup.name,
+            abs_path,
+            abs_html,
+            client,
+            cup.token,
+            cup.absolute_action,
+            cup.is_live,
+            cup.stage_label,
+        ),
+        _emit(
+            writer,
+            "cup",
+            "group",
+            cup.name,
+            grp_path,
+            grp_html,
+            client,
+            cup.token,
+            cup.group_action,
+            cup.is_live,
+            cup.stage_label,
+        ),
+    ]
+
+
+def _build_entries(
+    config: AppConfig,
+    participants: list[Participant],
+    stages_rows: list[list[list[LeaderboardRow]]],
+) -> tuple[list[list[StageEntry]], list[CupEntry]]:
+    """Match and score already-fetched rows into per-stage entries and the cup."""
+    per_stage: list[list[StageEntry]] = []
+    for seg_rows in stages_rows:
+        matches = [match_rows_to_participants(rows, participants) for rows in seg_rows]
+        per_stage.append(
+            build_stage_entries(matches, participants, config.unregistered_group_name)
+        )
+    cup = build_cup_entries(
+        per_stage, [s.rule for s in config.stages], config.cup.cup_rule
+    )
+    return per_stage, cup
+
+
+def _render_all(
+    config: AppConfig,
+    participants: list[Participant],
+    categories: list[str],
+    stages_rows: list[list[list[LeaderboardRow]]],
+    writer: Writer,
+    client: SiteClient | None,
+) -> list[ProtocolOutput]:
+    styles = _styles(config)
+    per_stage, cup_entries = _build_entries(config, participants, stages_rows)
+    outputs: list[ProtocolOutput] = []
+    for stage, entries in zip(config.stages, per_stage, strict=False):
+        outputs.extend(
+            _render_stage_outputs(
+                config, stage, entries, categories, styles, writer, client
+            )
+        )
+    stage_labels = [s.column_label() for s in config.stages]
+    outputs.extend(
+        _render_cup_outputs(
+            config, cup_entries, stage_labels, categories, styles, writer, client
+        )
+    )
+    return outputs
+
+
+def _snapshot(
+    participants: list[Participant],
+    categories: list[str],
+    stages_rows: list[list[list[LeaderboardRow]]],
+) -> dict[str, Any]:
+    return {
+        "participants": [p.__dict__ for p in participants],
+        "categories": categories,
+        "stages": [
+            [[row.to_dict() for row in seg] for seg in stage] for stage in stages_rows
+        ],
+    }
+
+
+def generate(
+    config: AppConfig,
+    browser: Browser,
+    client: SiteClient,
+    writer: Writer = _default_writer,
+    publish: bool = True,
+) -> GenerationResult:
+    """Run a live generation: roster, scrape stages, render, publish, and snapshot."""
+    result = GenerationResult()
+    participants: list[Participant] = []
+    categories: list[str] = []
+    try:
+        roster = client.fetch_participants(config.roster_token_effective())
+        participants = roster.participants
+        categories = [c.name for c in roster.categories]
+    except SiteApiError as exc:
+        result.errors.append(f"roster fetch failed: {exc}")
+
+    stages_rows: list[list[list[LeaderboardRow]]] = []
+    for stage in config.stages:
+        date_from = _parse_iso_date(stage.date_from)
+        date_to = _parse_iso_date(stage.date_to)
+        seg_rows = [
+            scrape_segment(browser, segment, date_from, date_to)
+            for segment in stage.segments
+        ]
+        stages_rows.append(seg_rows)
+
+    result.outputs = _render_all(
+        config,
+        participants,
+        categories,
+        stages_rows,
+        writer,
+        client if publish else None,
+    )
+    result.raw_snapshot = _snapshot(participants, categories, stages_rows)
+    return result
+
+
+def generate_from_snapshot(
+    config: AppConfig,
+    snapshot: dict[str, Any],
+    client: SiteClient | None = None,
+    writer: Writer = _default_writer,
+    publish: bool = False,
+) -> GenerationResult:
+    """Rebuild protocols from an archived snapshot -- no scraping or roster fetch."""
+    participants = [Participant.from_api(p) for p in snapshot.get("participants", [])]
+    categories = list(snapshot.get("categories", []))
+    stages_rows = [
+        [[LeaderboardRow.from_dict(r) for r in seg] for seg in stage]
+        for stage in snapshot.get("stages", [])
+    ]
+    result = GenerationResult(raw_snapshot=snapshot)
+    result.outputs = _render_all(
+        config,
+        participants,
+        categories,
+        stages_rows,
+        writer,
+        client if publish else None,
+    )
+    return result
