@@ -64,6 +64,12 @@ def test_stage_date_labels_mark_bounds_inclusive() -> None:
     assert form.labelForField(tab.date_to).text() == "Date to (including)"
 
 
+def test_stage_broadcast_token_label_links_to_site_url() -> None:
+    tab = mw.StageTab(StageConfig())
+    label = tab.layout().labelForField(tab.token).text()
+    assert label == "Broadcast token (to Site URL)"
+
+
 def test_stage_dates_round_trip_through_config() -> None:
     tab = mw.StageTab(StageConfig(date_from="2026-08-01", date_to="2026-08-02"))
     config = tab.to_config()
