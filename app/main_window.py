@@ -94,6 +94,23 @@ def _field_with_checkbox(field: QWidget, checkbox: QCheckBox) -> QHBoxLayout:
     return row
 
 
+def _label_and_value(label_field: QWidget, value_field: QWidget) -> QHBoxLayout:
+    """A caption editor and its value editor side by side on one form row."""
+    row = QHBoxLayout()
+    row.setContentsMargins(0, 0, 0, 0)
+    row.addWidget(label_field, stretch=1)
+    row.addWidget(value_field, stretch=2)
+    return row
+
+
+def _html_field(text: str) -> QPlainTextEdit:
+    """A one-line-tall editor for an inline HTML snippet (sponsor / bottom text)."""
+    edit = QPlainTextEdit(text)
+    edit.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
+    edit.setFixedHeight(edit.fontMetrics().height() + 14)
+    return edit
+
+
 class SegmentRow(QWidget):
     """One segment's editor: its id plus the Strava leaderboard filter dropdowns."""
 
@@ -531,21 +548,18 @@ class RaceInfoPanel(QWidget):
         self.secretary = QLineEdit(info.secretary)
         self.organizer_label = QLineEdit(info.organizer_label)
         self.organizer = QLineEdit(info.organizer)
-        self.sponsor = QPlainTextEdit(info.sponsor)
-        self.bottom_text = QPlainTextEdit(info.bottom_text)
+        self.sponsor = _html_field(info.sponsor)
+        self.bottom_text = _html_field(info.bottom_text)
 
+        # Each caption editor sits on one row next to its value; an empty value simply
+        # does not appear in the protocol (app.html_render), so a blank field is fine.
         form.addRow("Date", self.date)
         form.addRow("Place", self.place)
-        form.addRow("Weather label", self.weather_label)
-        form.addRow("Weather", self.weather)
-        form.addRow("Track label", self.track_label)
-        form.addRow("Track conditions", self.track_conditions)
-        form.addRow("Referee label", self.referee_label)
-        form.addRow("Referee", self.referee)
-        form.addRow("Secretary label", self.secretary_label)
-        form.addRow("Secretary", self.secretary)
-        form.addRow("Organizer label", self.organizer_label)
-        form.addRow("Organizer", self.organizer)
+        form.addRow("Weather", _label_and_value(self.weather_label, self.weather))
+        form.addRow("Track", _label_and_value(self.track_label, self.track_conditions))
+        form.addRow("Referee", _label_and_value(self.referee_label, self.referee))
+        form.addRow("Secretary", _label_and_value(self.secretary_label, self.secretary))
+        form.addRow("Organizer", _label_and_value(self.organizer_label, self.organizer))
         form.addRow("Sponsor (HTML)", self.sponsor)
         form.addRow("Bottom text (HTML)", self.bottom_text)
 
