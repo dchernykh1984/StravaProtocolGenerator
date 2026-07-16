@@ -98,6 +98,37 @@ def test_cup_entry_carries_per_stage_effort_links() -> None:
     assert cup[0].stage_urls == ["u1", "u2"]
 
 
+def test_build_stage_entries_carries_registration_details() -> None:
+    participant = Participant(
+        id=1,
+        first_name="Ivan",
+        last_name="Petrov",
+        participant_names="Ivan Petrov",
+        category_id=1,
+        category_name="A",
+        additional_info="",
+        birth_year=1984,
+        team="UBT",
+        city="Almaty",
+    )
+    match = MatchResult(results={1: _row("Ivan Petrov", "111", 300.0)})
+    registered = build_stage_entries([match], [participant])[0].competitor
+    assert (registered.birth_year, registered.team, registered.city) == (
+        1984,
+        "UBT",
+        "Almaty",
+    )
+    # An unregistered rider has no registration details.
+    unregistered = build_stage_entries(
+        [MatchResult(unregistered=[_row("Guest", "999", 250.0)])], []
+    )[0].competitor
+    assert (unregistered.birth_year, unregistered.team, unregistered.city) == (
+        0,
+        "",
+        "",
+    )
+
+
 def test_build_stage_entries_registered_all_appear() -> None:
     participants = [_participant(1, "Ivan Petrov"), _participant(2, "Anna Ivanova")]
     match = MatchResult(results={1: _row("Ivan Petrov", "111", 300.0)}, unregistered=[])

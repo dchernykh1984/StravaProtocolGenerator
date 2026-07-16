@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import cast
 
 from app.models import RaceInfo
-from app.scoring import CupEntry, Ranked, StageEntry
+from app.scoring import Competitor, CupEntry, Ranked, StageEntry
 from app.timeparse import format_time
 
 _TEMPLATE_FIELDS = (
@@ -81,7 +81,22 @@ def load_template(path: str) -> HtmlStyles | None:
 
 
 @dataclass
-class StageColumns:
+class PersonColumns:
+    """Shared registration columns (year of birth, team, city) and their toggles.
+
+    Values come from the registration, so they are blank for an unregistered rider.
+    """
+
+    show_year: bool = False
+    year_label: str = "Year"
+    show_team: bool = False
+    team_label: str = "Team"
+    show_city: bool = False
+    city_label: str = "City"
+
+
+@dataclass
+class StageColumns(PersonColumns):
     """Column labels and toggles for a stage protocol table."""
 
     place_label: str = "Place"
@@ -95,7 +110,7 @@ class StageColumns:
 
 
 @dataclass
-class CupColumns:
+class CupColumns(PersonColumns):
     """Column labels and toggles for the cup protocol table."""
 
     place_label: str = "Place"
@@ -159,6 +174,30 @@ def _cell(value: str) -> str:
 def _link_cell(value: str, url: str) -> str:
     """A centered cell whose text links to ``url`` (a plain cell when no ``url``)."""
     return f"<td ALIGN=center>{_link_inner(value, url)}</td>"
+
+
+def _person_headers(columns: PersonColumns) -> str:
+    """The enabled registration column headers (year of birth, team, city)."""
+    out = ""
+    if columns.show_year:
+        out += _header_cell(columns.year_label)
+    if columns.show_team:
+        out += _header_cell(columns.team_label)
+    if columns.show_city:
+        out += _header_cell(columns.city_label)
+    return out
+
+
+def _person_cells(competitor: Competitor, columns: PersonColumns) -> str:
+    """The enabled registration cells for one rider (blank when not registered)."""
+    out = ""
+    if columns.show_year:
+        out += _cell(str(competitor.birth_year) if competitor.birth_year else "")
+    if columns.show_team:
+        out += _cell(competitor.team)
+    if columns.show_city:
+        out += _cell(competitor.city)
+    return out
 
 
 def _gap_text(value: float | None, leader: float | None, decimals: int) -> str:
@@ -291,6 +330,7 @@ def render_stage_protocol(
             buf.write(_header_cell(columns.place_label))
         if columns.show_name:
             buf.write(_header_cell(columns.name_label))
+        buf.write(_person_headers(columns))
         if columns.show_gap:
             buf.write(
                 _header_cell_with_sub(columns.result_label, columns.gap_label, styles)
@@ -308,6 +348,7 @@ def render_stage_protocol(
                 name = entry.competitor.name
                 url = entry.competitor.athlete_url if columns.show_links else ""
                 buf.write(_link_cell(name, url))
+            buf.write(_person_cells(entry.competitor, columns))
             result = format_time(entry.value, decimals)
             result_url = entry.result_url if columns.show_links else ""
             gap = _gap_text(entry.value, leader, decimals) if columns.show_gap else ""
@@ -368,6 +409,7 @@ def _write_cup_header(
         buf.write(_header_cell(columns.place_label))
     if columns.show_name:
         buf.write(_header_cell(columns.name_label))
+    buf.write(_person_headers(columns))
     for label in stage_labels:
         if columns.show_stage_gap:
             buf.write(_header_cell_with_sub(label, columns.stage_gap_label, styles))
@@ -400,6 +442,7 @@ def _write_cup_row(
     if columns.show_name:
         url = entry.competitor.athlete_url if columns.show_links else ""
         buf.write(_link_cell(entry.competitor.name, url))
+    buf.write(_person_cells(entry.competitor, columns))
     for j, value in enumerate(entry.stage_values):
         stage_url = _stage_url(entry, j) if columns.show_links else ""
         leader = stage_leaders[j] if j < len(stage_leaders) else None

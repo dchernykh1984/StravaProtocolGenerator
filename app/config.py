@@ -133,6 +133,12 @@ class StageConfig:
     result_label: str = "Result"
     show_place: bool = True
     show_name: bool = True
+    show_year: bool = True
+    year_label: str = "Year of birth"
+    show_team: bool = True
+    team_label: str = "Team"
+    show_city: bool = True
+    city_label: str = "City"
     show_gap: bool = True
     gap_label: str = "(gap)"
     unregistered_group_name: str = "Not registered"
@@ -158,6 +164,12 @@ class StageConfig:
             "place_label": self.place_label,
             "name_label": self.name_label,
             "result_label": self.result_label,
+            "show_year": self.show_year,
+            "year_label": self.year_label,
+            "show_team": self.show_team,
+            "team_label": self.team_label,
+            "show_city": self.show_city,
+            "city_label": self.city_label,
             "show_gap": self.show_gap,
             "gap_label": self.gap_label,
             "show_place": self.show_place,
@@ -190,6 +202,12 @@ class StageConfig:
             place_label=d("place_label"),
             name_label=d("name_label"),
             result_label=d("result_label"),
+            show_year=d("show_year"),
+            year_label=d("year_label"),
+            show_team=d("show_team"),
+            team_label=d("team_label"),
+            show_city=d("show_city"),
+            city_label=d("city_label"),
             show_gap=d("show_gap"),
             gap_label=d("gap_label"),
             show_place=d("show_place"),
@@ -222,6 +240,12 @@ class CupConfig:
     total_label: str = "Total"
     show_place: bool = True
     show_name: bool = True
+    show_year: bool = True
+    year_label: str = "Year of birth"
+    show_team: bool = True
+    team_label: str = "Team"
+    show_city: bool = True
+    city_label: str = "City"
     show_gap: bool = True
     gap_label: str = "(gap)"
     show_stage_gap: bool = True
@@ -248,6 +272,12 @@ class CupConfig:
             "total_label": self.total_label,
             "show_place": self.show_place,
             "show_name": self.show_name,
+            "show_year": self.show_year,
+            "year_label": self.year_label,
+            "show_team": self.show_team,
+            "team_label": self.team_label,
+            "show_city": self.show_city,
+            "city_label": self.city_label,
             "show_gap": self.show_gap,
             "gap_label": self.gap_label,
             "show_stage_gap": self.show_stage_gap,
@@ -278,6 +308,12 @@ class CupConfig:
             total_label=d("total_label"),
             show_place=d("show_place"),
             show_name=d("show_name"),
+            show_year=d("show_year"),
+            year_label=d("year_label"),
+            show_team=d("show_team"),
+            team_label=d("team_label"),
+            show_city=d("show_city"),
+            city_label=d("city_label"),
             show_gap=d("show_gap"),
             gap_label=d("gap_label"),
             show_stage_gap=d("show_stage_gap"),

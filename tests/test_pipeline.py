@@ -184,6 +184,32 @@ def test_generate_renders_per_protocol_race_info() -> None:
     assert "Cup org" not in stage_abs
 
 
+def test_generate_shows_year_team_city_from_registration() -> None:
+    roster = ParticipantsResponse(
+        competition_id=250,
+        categories=[Category(id=1, name="3.5+")],
+        participants=[
+            Participant(
+                id=1,
+                first_name="Ivan",
+                last_name="Petrov",
+                participant_names="Ivan Petrov",
+                category_id=1,
+                category_name="3.5+",
+                additional_info="athletes/111",
+                birth_year=1984,
+                team="UBT",
+                city="Almaty",
+            )
+        ],
+    )
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
+    written: dict[str, str] = {}
+    generate(_config(), browser, _FakeClient(roster), writer=_capture_writer(written))
+    stage_abs = next(c for p, c in written.items() if "Day_1_absolute" in p)
+    assert "1984" in stage_abs and "UBT" in stage_abs and "Almaty" in stage_abs
+
+
 def test_generate_registered_rider_grouped_by_category() -> None:
     browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
     client = _FakeClient(_roster())
