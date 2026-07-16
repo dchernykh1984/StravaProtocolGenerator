@@ -93,7 +93,8 @@ class SegmentConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> SegmentConfig:
+    def from_dict(cls, data: dict[str, Any] | None) -> SegmentConfig:
+        data = data or {}
         return cls(
             segment_id=str(data.get("segment_id", "")),
             date_range=_coerce_enum(DateRange, data.get("date_range"), DateRange.TODAY),
@@ -162,7 +163,8 @@ class StageConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> StageConfig:
+    def from_dict(cls, data: dict[str, Any] | None) -> StageConfig:
+        data = data or {}
         d = _Defaults(data, cls())
         segments = [SegmentConfig.from_dict(s) for s in data.get("segments", [])]
         return cls(
@@ -249,7 +251,8 @@ class CupConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> CupConfig:
+    def from_dict(cls, data: dict[str, Any] | None) -> CupConfig:
+        data = data or {}
         d = _Defaults(data, cls())
         return cls(
             name=d("name"),
@@ -310,7 +313,8 @@ class AppConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> AppConfig:
+    def from_dict(cls, data: dict[str, Any] | None) -> AppConfig:
+        data = data or {}
         d = _Defaults(data, cls())
         stages = [StageConfig.from_dict(s) for s in data.get("stages", [])]
         cup = CupConfig.from_dict(data["cup"]) if "cup" in data else CupConfig()
