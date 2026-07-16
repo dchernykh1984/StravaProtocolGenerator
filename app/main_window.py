@@ -406,34 +406,38 @@ class MainWindow(QMainWindow):
         central = QWidget()
         self.setCentralWidget(central)
         root = QVBoxLayout(central)
+        self._main_tabs = QTabWidget()
+        root.addWidget(self._main_tabs)
 
-        # Globals and the cup share one two-column row above the stages so the window
-        # stays short enough to fit on screen.
+        # Main tab: global settings, the shared action buttons, and the log.
+        main_tab = QWidget()
+        main_layout = QVBoxLayout(main_tab)
         self._globals = self._build_globals()
-        top = QHBoxLayout()
-        left = QVBoxLayout()
-        left.addLayout(self._globals_layout)
-        left.addStretch(1)
-        right = QVBoxLayout()
-        self._cup = CupPanel(CupConfig())
-        right.addWidget(self._cup)
-        right.addStretch(1)
-        top.addLayout(left, stretch=1)
-        top.addLayout(right, stretch=1)
-        root.addLayout(top)
-
-        self._tabs = QTabWidget()
-        root.addWidget(self._tabs, stretch=1)
-        root.addLayout(self._build_stage_buttons())
-
-        root.addLayout(self._build_action_buttons())
-
+        main_layout.addLayout(self._globals_layout)
+        main_layout.addLayout(self._build_action_buttons())
         self._log_to_file = QCheckBox("Log to file")
-        root.addWidget(self._log_to_file)
+        main_layout.addWidget(self._log_to_file)
         self._log_file: Path | None = None
         self._log = QPlainTextEdit()
         self._log.setReadOnly(True)
-        root.addWidget(self._log)
+        main_layout.addWidget(self._log, stretch=1)
+        self._main_tabs.addTab(main_tab, "Main")
+
+        # Cup tab: the overall-cup protocol settings.
+        cup_tab = QWidget()
+        self._cup_layout = QVBoxLayout(cup_tab)
+        self._cup = CupPanel(CupConfig())
+        self._cup_layout.addWidget(self._cup)
+        self._cup_layout.addStretch(1)
+        self._main_tabs.addTab(cup_tab, "Cup")
+
+        # Stages tab: a sub-tab per stage plus the add/delete controls.
+        stages_tab = QWidget()
+        stages_layout = QVBoxLayout(stages_tab)
+        self._tabs = QTabWidget()
+        stages_layout.addWidget(self._tabs, stretch=1)
+        stages_layout.addLayout(self._build_stage_buttons())
+        self._main_tabs.addTab(stages_tab, "Stages")
 
         self.apply_config(load_config(_CONFIG_PATH))
 
@@ -541,7 +545,7 @@ class MainWindow(QMainWindow):
 
     def _replace_cup(self, cup: CupConfig) -> CupPanel:
         new_panel = CupPanel(cup)
-        self.centralWidget().layout().replaceWidget(self._cup, new_panel)
+        self._cup_layout.replaceWidget(self._cup, new_panel)
         self._cup.deleteLater()
         return new_panel
 

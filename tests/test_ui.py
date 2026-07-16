@@ -276,6 +276,12 @@ def test_single_generate_button_replaces_the_pair() -> None:
     assert "Generate locally" not in labels
 
 
+def test_main_window_has_main_cup_stages_tabs() -> None:
+    window = mw.MainWindow()
+    labels = [window._main_tabs.tabText(i) for i in range(window._main_tabs.count())]
+    assert labels == ["Main", "Cup", "Stages"]
+
+
 def test_login_to_strava_button_present() -> None:
     window = mw.MainWindow()
     labels = [b.text() for b in window.findChildren(QPushButton)]
