@@ -309,6 +309,7 @@ def _render_stage_outputs(
         columns,
         config.decimals,
         stage.race_info,
+        show_group_column=stage.show_group,
     )
     grp_html = render_stage_protocol(
         stage.name,
@@ -392,6 +393,7 @@ def _render_cup_outputs(
         columns,
         config.decimals,
         cup.race_info,
+        show_group_column=cup.show_group,
     )
     grp_html = render_cup_protocol(
         cup.name,

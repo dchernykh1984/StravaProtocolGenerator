@@ -207,6 +207,24 @@ def _person_cells(competitor: Competitor, columns: PersonColumns) -> str:
     return out
 
 
+def _group_column_cells(ranked: list[Ranked]) -> list[str]:
+    """Per-row "group (place-in-group)" text for the absolute protocol's group column.
+
+    The place counts finishers within each group in the (already sorted) order; a rider
+    with no result (DNF) shows only their group, with no place in parentheses.
+    """
+    counters: dict[str, int] = {}
+    cells: list[str] = []
+    for item in ranked:
+        group = item.entry.competitor.group_name
+        if item.place is None:
+            cells.append(group)
+        else:
+            counters[group] = counters.get(group, 0) + 1
+            cells.append(f"{group} ({counters[group]})" if group else "")
+    return cells
+
+
 def _gap_text(value: float | None, leader: float | None, decimals: int) -> str:
     """The ``(+diff)`` gap of ``value`` behind ``leader``; empty when not applicable.
 
@@ -325,11 +343,14 @@ def render_stage_protocol(
     columns: StageColumns | None = None,
     decimals: int = 0,
     race_info: RaceInfo | None = None,
+    show_group_column: bool = False,
 ) -> str:
     """Render a stage protocol: place / name / result, one table per group.
 
     With ``columns.show_gap`` the result carries the gap to that group's leader on a
     second line; ``race_info`` adds the shared header/footer (date, weather, officials).
+    ``show_group_column`` adds a group column (with place-in-group) for the absolute
+    protocol, where riders are not split into per-group tables.
     """
     styles = styles or HtmlStyles()
     columns = columns or StageColumns()
@@ -343,6 +364,8 @@ def render_stage_protocol(
             buf.write(_header_cell(columns.place_label))
         if columns.show_name:
             buf.write(_header_cell(columns.name_label))
+        if show_group_column:
+            buf.write(_header_cell(columns.group_label))
         buf.write(_person_headers(columns))
         if columns.show_gap:
             buf.write(
@@ -352,6 +375,7 @@ def render_stage_protocol(
             buf.write(_header_cell(columns.result_label))
         buf.write("</tr>\n")
         leader = _first_value(ranked, lambda e: cast(StageEntry, e).value)
+        group_cells = _group_column_cells(ranked) if show_group_column else []
         for i, item in enumerate(ranked):
             entry = cast(StageEntry, item.entry)
             buf.write(f'<tr style="{_row_style(styles, i)}">')
@@ -361,6 +385,8 @@ def render_stage_protocol(
                 name = entry.competitor.name
                 url = entry.competitor.athlete_url if columns.show_links else ""
                 buf.write(_link_cell(name, url))
+            if show_group_column:
+                buf.write(_cell(group_cells[i]))
             buf.write(_person_cells(entry.competitor, columns))
             result = format_time(entry.value, decimals)
             result_url = entry.result_url if columns.show_links else ""
@@ -381,6 +407,7 @@ def render_cup_protocol(
     columns: CupColumns | None = None,
     decimals: int = 0,
     race_info: RaceInfo | None = None,
+    show_group_column: bool = False,
 ) -> str:
     """Render the cup protocol: place / name / one column per stage / total.
 
@@ -388,6 +415,8 @@ def render_cup_protocol(
     ``columns.show_stage_gap`` adds each rider's gap to that stage's leader under the
     stage value; ``columns.show_gap`` adds the gap to the overall leader under the
     total. ``race_info`` adds the shared header/footer (date, weather, officials).
+    ``show_group_column`` adds a group column (with place-in-group) for the absolute
+    protocol, where riders are not split into per-group tables.
     """
     styles = styles or HtmlStyles()
     columns = columns or CupColumns()
@@ -396,13 +425,21 @@ def render_cup_protocol(
     _open_document(buf, title, styles, info)
     for group_name, ranked in groups:
         _open_table(buf, group_name, styles, columns.group_label)
-        _write_cup_header(buf, stage_labels, columns, styles)
+        _write_cup_header(buf, stage_labels, columns, styles, show_group_column)
         stage_leaders = [_stage_leader(ranked, j) for j in range(len(stage_labels))]
         total_leader = _first_value(ranked, lambda e: cast(CupEntry, e).total)
+        group_cells = _group_column_cells(ranked) if show_group_column else []
         for i, item in enumerate(ranked):
             buf.write(f'<tr style="{_row_style(styles, i)}">')
             _write_cup_row(
-                buf, item, columns, styles, decimals, stage_leaders, total_leader
+                buf,
+                item,
+                columns,
+                styles,
+                decimals,
+                stage_leaders,
+                total_leader,
+                group_cells[i] if show_group_column else None,
             )
             buf.write("</tr>\n")
         buf.write("</table>\n<BR>\n")
@@ -416,12 +453,15 @@ def _write_cup_header(
     stage_labels: list[str],
     columns: CupColumns,
     styles: HtmlStyles,
+    show_group_column: bool = False,
 ) -> None:
     buf.write(f'<tr style="{styles.top_line_style}">')
     if columns.show_place:
         buf.write(_header_cell(columns.place_label))
     if columns.show_name:
         buf.write(_header_cell(columns.name_label))
+    if show_group_column:
+        buf.write(_header_cell(columns.group_label))
     buf.write(_person_headers(columns))
     for label in stage_labels:
         if columns.show_stage_gap:
@@ -448,6 +488,7 @@ def _write_cup_row(
     decimals: int,
     stage_leaders: list[float | None],
     total_leader: float | None,
+    group_cell: str | None = None,
 ) -> None:
     entry = cast(CupEntry, item.entry)
     if columns.show_place:
@@ -455,6 +496,8 @@ def _write_cup_row(
     if columns.show_name:
         url = entry.competitor.athlete_url if columns.show_links else ""
         buf.write(_link_cell(entry.competitor.name, url))
+    if group_cell is not None:
+        buf.write(_cell(group_cell))
     buf.write(_person_cells(entry.competitor, columns))
     for j, value in enumerate(entry.stage_values):
         stage_url = _stage_url(entry, j) if columns.show_links else ""
