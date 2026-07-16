@@ -34,7 +34,7 @@ from app.scoring import (
     build_stage_entries,
     rank_entries,
 )
-from app.scraper import Browser, scrape_segment
+from app.scraper import Leaderboard, scrape_segment
 from app.site_api import ParticipantsResponse, SiteApiError
 
 Writer = Callable[[str, str], None]
@@ -373,7 +373,7 @@ def _stage_rows(
     stage: StageConfig,
     index: int,
     previous_stages: list[Any],
-    browser: Browser,
+    leaderboard: Leaderboard,
 ) -> list[list[LeaderboardRow]]:
     """Scrape a stage, or reuse its rows from ``previous_stages`` when frozen.
 
@@ -388,14 +388,14 @@ def _stage_rows(
     date_from = _parse_iso_date(stage.date_from)
     date_to = _parse_iso_date(stage.date_to)
     return [
-        scrape_segment(browser, segment, date_from, date_to)
+        scrape_segment(leaderboard, segment, date_from, date_to)
         for segment in stage.segments
     ]
 
 
 def generate(
     config: AppConfig,
-    browser: Browser,
+    leaderboard: Leaderboard,
     client: SiteClient,
     writer: Writer = _default_writer,
     publish: bool = True,
@@ -419,7 +419,7 @@ def generate(
 
     previous_stages = (previous or {}).get("stages", [])
     stages_rows: list[list[list[LeaderboardRow]]] = [
-        _stage_rows(stage, i, previous_stages, browser)
+        _stage_rows(stage, i, previous_stages, leaderboard)
         for i, stage in enumerate(config.stages)
     ]
 

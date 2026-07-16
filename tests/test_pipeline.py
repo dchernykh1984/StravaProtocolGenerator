@@ -1,38 +1,34 @@
-"""End-to-end pipeline tests with a fake browser and fake site client."""
+"""End-to-end pipeline tests with a fake leaderboard source and fake site client."""
 
 from app.config import AppConfig, CupConfig, HttpAction, SegmentConfig, StageConfig
 from app.models import Category, LeaderboardRow, Participant
 from app.pipeline import generate, generate_from_snapshot
 from app.site_api import ParticipantsResponse, SiteApiError
+from app.timeparse import parse_time
 
 
-def _page(aid: str, name: str, result: str, day: int = 5) -> str:
-    return (
-        '<div id="results"><table><tbody>'
-        f'<tr><td>1</td><td><a href="/athletes/{aid}">{name}</a></td>'
-        f"<td>Aug {day}, 2025</td><td>{result}</td></tr>"
-        "</tbody></table></div>"
+def _row(aid: str, name: str, result: str, day: int = 5) -> LeaderboardRow:
+    return LeaderboardRow(
+        athlete_name=name,
+        athlete_id=aid,
+        raw_result=result,
+        result_seconds=parse_time(result),
+        date=f"Aug {day}, 2025",
+        athlete_url=f"https://www.strava.com/athletes/{aid}",
+        attempt_url=f"https://www.strava.com/activities/{aid}",
     )
 
 
-class _FakeBrowser:
-    """Returns a page keyed by whichever segment id appears in the requested URL."""
+class _FakeLeaderboard:
+    """Serves one segment's row, keyed by segment id (a single page)."""
 
-    def __init__(self, pages_by_segment: dict[str, str]) -> None:
-        self._pages = pages_by_segment
-        self._current = ""
+    def __init__(self, rows_by_segment: dict[str, LeaderboardRow]) -> None:
+        self._rows = rows_by_segment
 
-    def get(self, url: str) -> None:
-        self._current = next((v for k, v in self._pages.items() if k in url), "")
-
-    def page_source(self) -> str:
-        return self._current
-
-    def has_next_page(self) -> bool:
-        return False
-
-    def go_next_page(self) -> None:
-        pass
+    def page(self, segment_id: str, page: int) -> tuple[list[LeaderboardRow], int]:
+        present = segment_id in self._rows and page == 1
+        rows = [self._rows[segment_id]] if present else []
+        return rows, len(rows)
 
 
 class _FakeClient:
@@ -110,7 +106,7 @@ def _capture_writer(store: dict[str, str]):
 
 
 def test_generate_writes_all_four_protocols() -> None:
-    browser = _FakeBrowser({"seg1": _page("111", "Ivan Petrov", "5:00")})
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
     client = _FakeClient(_roster())
     written: dict[str, str] = {}
     result = generate(_config(), browser, client, writer=_capture_writer(written))
@@ -130,7 +126,7 @@ def test_generate_writes_all_four_protocols() -> None:
 
 
 def test_generate_registered_rider_grouped_by_category() -> None:
-    browser = _FakeBrowser({"seg1": _page("111", "Ivan Petrov", "5:00")})
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
     client = _FakeClient(_roster())
     written: dict[str, str] = {}
     generate(_config(), browser, client, writer=_capture_writer(written))
@@ -139,7 +135,7 @@ def test_generate_registered_rider_grouped_by_category() -> None:
 
 
 def test_generate_unregistered_rider_goes_to_named_group() -> None:
-    browser = _FakeBrowser({"seg1": _page("999", "Random Rider", "4:30")})
+    browser = _FakeLeaderboard({"seg1": _row("999", "Random Rider", "4:30")})
     client = _FakeClient(_roster())
     written: dict[str, str] = {}
     generate(_config(), browser, client, writer=_capture_writer(written))
@@ -149,7 +145,7 @@ def test_generate_unregistered_rider_goes_to_named_group() -> None:
 
 
 def test_generate_publishes_per_action() -> None:
-    browser = _FakeBrowser({"seg1": _page("111", "Ivan Petrov", "5:00")})
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
     client = _FakeClient(_roster())
     generate(_config(), browser, client, writer=_capture_writer({}))
     # Stage abs upload + cup abs upload; cup group delete; stage group nothing.
@@ -160,7 +156,7 @@ def test_generate_publishes_per_action() -> None:
 
 
 def test_generate_no_publish_when_disabled() -> None:
-    browser = _FakeBrowser({"seg1": _page("111", "Ivan Petrov", "5:00")})
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
     client = _FakeClient(_roster())
     generate(_config(), browser, client, writer=_capture_writer({}), publish=False)
     assert client.uploads == []
@@ -168,7 +164,7 @@ def test_generate_no_publish_when_disabled() -> None:
 
 
 def test_generate_records_roster_failure_and_continues() -> None:
-    browser = _FakeBrowser({"seg1": _page("111", "Ivan Petrov", "5:00")})
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
     client = _FakeClient(_roster(), fail=True)
     written: dict[str, str] = {}
     result = generate(_config(), browser, client, writer=_capture_writer(written))
@@ -178,7 +174,7 @@ def test_generate_records_roster_failure_and_continues() -> None:
 
 
 def test_generate_snapshot_roundtrips_through_regeneration() -> None:
-    browser = _FakeBrowser({"seg1": _page("111", "Ivan Petrov", "5:00")})
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
     client = _FakeClient(_roster())
     live = generate(_config(), browser, client, writer=_capture_writer({}))
 
@@ -205,7 +201,7 @@ def test_generate_uses_template_file(tmp_path) -> None:
     template.write_text("\n".join(["T-STYLE", *[""] * 10]), encoding="utf-8")
     cfg = _config()
     cfg.template_file = str(template)
-    browser = _FakeBrowser({"seg1": _page("111", "Ivan Petrov", "5:00")})
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
     written: dict[str, str] = {}
     generate(cfg, browser, _FakeClient(_roster()), writer=_capture_writer(written))
     assert any('style="T-STYLE"' in c for c in written.values())
@@ -214,7 +210,7 @@ def test_generate_uses_template_file(tmp_path) -> None:
 def test_generate_tolerates_bad_date() -> None:
     cfg = _config()
     cfg.stages[0].date_from = "not-a-date"
-    browser = _FakeBrowser({"seg1": _page("111", "Ivan Petrov", "5:00")})
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
     written: dict[str, str] = {}
     generate(cfg, browser, _FakeClient(_roster()), writer=_capture_writer(written))
     assert len(written) == 4
@@ -225,7 +221,7 @@ def test_generate_publish_error_recorded_on_output() -> None:
         def upload_protocol(self, *a: object, **k: object) -> None:
             raise SiteApiError("upload down")
 
-    browser = _FakeBrowser({"seg1": _page("111", "Ivan Petrov", "5:00")})
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
     client = _FailingUpload(_roster())
     result = generate(_config(), browser, client, writer=_capture_writer({}))
     uploaded = [o for o in result.outputs if o.scope == "absolute"]
@@ -243,7 +239,7 @@ def test_frozen_stage_reuses_previous_snapshot_without_scraping() -> None:
     )
     previous = {"stages": [[[guest.to_dict()]]]}
     # The browser would return a different rider; freezing must ignore it entirely.
-    browser = _FakeBrowser({"seg1": _page("777", "Fresh Scrape", "5:00")})
+    browser = _FakeLeaderboard({"seg1": _row("777", "Fresh Scrape", "5:00")})
     written: dict[str, str] = {}
     result = generate(
         cfg,
@@ -265,7 +261,7 @@ def test_unfrozen_stage_scrapes_and_ignores_previous_snapshot() -> None:
         athlete_name="Stale", athlete_id="999", raw_result="4:30", result_seconds=270.0
     )
     previous = {"stages": [[[stale.to_dict()]]]}
-    browser = _FakeBrowser({"seg1": _page("111", "Ivan Petrov", "5:00")})
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
     written: dict[str, str] = {}
     generate(
         cfg,
@@ -282,7 +278,7 @@ def test_unfrozen_stage_scrapes_and_ignores_previous_snapshot() -> None:
 def test_frozen_stage_without_prior_data_falls_back_to_scraping() -> None:
     cfg = _config()
     cfg.stages[0].freeze_strava_data = True
-    browser = _FakeBrowser({"seg1": _page("111", "Ivan Petrov", "5:00")})
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
     written: dict[str, str] = {}
     generate(
         cfg,

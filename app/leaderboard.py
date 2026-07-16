@@ -147,6 +147,10 @@ def parse_leaderboard_date(text: str, today: date | None = None) -> date | None:
         return today
     if low.startswith("yesterday"):
         return today - timedelta(days=1)
+    try:  # ISO timestamps from the JSON API, e.g. "2026-07-15T00:00:00Z"
+        return datetime.fromisoformat(cleaned.replace("Z", "+00:00")).date()
+    except ValueError:
+        pass
     for fmt in _DATE_FORMATS:
         head = cleaned.split(" at ")[0].strip()
         try:

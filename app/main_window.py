@@ -49,7 +49,7 @@ from app.config import (
     SegmentConfig,
     StageConfig,
 )
-from app.http_browser import HttpBrowser, StravaAuthError
+from app.leaderboard_api import StravaAuthError, StravaLeaderboard
 from app.pipeline import GenerationResult, generate
 from app.scoring import CupRule, StageRule
 from app.selenium_driver import SeleniumBrowser
@@ -222,17 +222,17 @@ class _GenerateWorker(QThread):
             self.failed.emit(str(exc))
 
     def _generate_authenticated(self, client: SiteApiClient) -> GenerationResult:
-        """Scrape over the saved Strava session; frozen stages skip Strava entirely.
+        """Read the leaderboards over the saved session; frozen stages skip Strava.
 
         Each protocol's own action (Nothing/Upload/Delete) decides what reaches the
         site, so generation always runs the publish path. A stage that needs scraping
         without a valid session fails with a clear "log in" message rather than trying
         to automate the (reCAPTCHA-guarded) sign-in.
         """
-        browser = HttpBrowser(self._config.strava_cookies)
+        leaderboard = StravaLeaderboard(self._config.strava_cookies)
         try:
             return generate(
-                self._config, browser, client, publish=True, previous=self._previous
+                self._config, leaderboard, client, publish=True, previous=self._previous
             )
         except StravaAuthError as exc:
             raise RuntimeError(
