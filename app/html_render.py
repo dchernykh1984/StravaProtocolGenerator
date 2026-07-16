@@ -305,9 +305,9 @@ def _open_document(
 def _open_table(buf: StringIO, group_name: str, styles: HtmlStyles) -> None:
     if group_name:
         buf.write(f"{styles.group_name_style}{html.escape(group_name)}</FONT><BR>\n")
-    buf.write(
-        f'<table style="{styles.table_style}" border=1 cellspacing=0 cellpadding=3>\n'
-    )
+    # border=0 (as in FinishProtocolGenerator): no cell dividers -- the template's CSS
+    # and the per-row background styles carry the look, so the same template matches it.
+    buf.write(f'<table style="{styles.table_style}" border=0>\n')
 
 
 def render_stage_protocol(
