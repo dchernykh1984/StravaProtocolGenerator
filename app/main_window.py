@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
     QFormLayout,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -111,11 +112,17 @@ def _html_field(text: str) -> QPlainTextEdit:
     return edit
 
 
-class SegmentRow(QWidget):
-    """One segment's editor: its id plus the Strava leaderboard filter dropdowns."""
+_SEGMENT_HEADERS = ("id", "date range", "gender", "filter")
+
+
+class SegmentRow:
+    """Holds one segment's editor widgets and builds its config (not a widget itself).
+
+    The widgets are laid out by ``SegmentList`` in a shared grid so the column headers
+    line up with them; this class only owns the controls and reads them back.
+    """
 
     def __init__(self, segment: SegmentConfig) -> None:
-        super().__init__()
         self.segment_id = QLineEdit(segment.segment_id)
         self.segment_id.setPlaceholderText("segment id")
         self.date_range = _combo(_DATE_RANGES, segment.date_range.value)
@@ -123,13 +130,16 @@ class SegmentRow(QWidget):
         self.filter_type = _combo(_FILTER_TYPES, segment.filter_type.value)
         self.remove = QToolButton()
         self.remove.setText("x")
-        row = QHBoxLayout(self)
-        row.setContentsMargins(0, 0, 0, 0)
-        row.addWidget(self.segment_id, stretch=1)
-        row.addWidget(self.date_range)
-        row.addWidget(self.gender)
-        row.addWidget(self.filter_type)
-        row.addWidget(self.remove)
+
+    def cells(self) -> list[QWidget]:
+        """The row's widgets in column order (id, date_range, gender, filter, x)."""
+        return [
+            self.segment_id,
+            self.date_range,
+            self.gender,
+            self.filter_type,
+            self.remove,
+        ]
 
     def to_config(self) -> SegmentConfig:
         return SegmentConfig(
@@ -143,40 +153,51 @@ class SegmentRow(QWidget):
 
 
 class SegmentList(QWidget):
-    """A stage's segments as a growable list of ``SegmentRow`` editors."""
+    """A stage's segments as a growable grid of ``SegmentRow`` editors under headers."""
 
     def __init__(self, segments: list[SegmentConfig]) -> None:
         super().__init__()
-        self._layout = QVBoxLayout(self)
-        self._layout.setContentsMargins(0, 0, 0, 0)
-        header = QHBoxLayout()
-        header.setContentsMargins(0, 0, 0, 0)
-        header.addWidget(QLabel("id"), stretch=1)
-        header.addWidget(QLabel("date range"))
-        header.addWidget(QLabel("gender"))
-        header.addWidget(QLabel("filter"))
-        self._layout.addLayout(header)
-        self.rows: list[SegmentRow] = []
+        self._grid = QGridLayout(self)
+        self._grid.setContentsMargins(0, 0, 0, 0)
+        self._grid.setColumnStretch(0, 1)  # the id column takes the spare width
+        self._headers = [QLabel(name) for name in _SEGMENT_HEADERS]
         self._add_button = QPushButton("Add segment")
         self._add_button.clicked.connect(lambda: self.add_segment())
-        # Add the button first so every row is inserted just above it.
-        self._layout.addWidget(self._add_button)
+        self.rows: list[SegmentRow] = []
         for segment in segments or [SegmentConfig()]:
-            self.add_segment(segment)
+            self.rows.append(self._connect(SegmentRow(segment)))
+        self._rebuild()
+
+    def _connect(self, row: SegmentRow) -> SegmentRow:
+        row.remove.clicked.connect(lambda: self._remove(row))
+        return row
 
     def add_segment(self, segment: SegmentConfig | None = None) -> SegmentRow:
-        row = SegmentRow(segment or SegmentConfig())
-        row.remove.clicked.connect(lambda: self._remove(row))
+        row = self._connect(SegmentRow(segment or SegmentConfig()))
         self.rows.append(row)
-        # Keep the "Add segment" button below the rows.
-        self._layout.insertWidget(self._layout.count() - 1, row)
+        self._rebuild()
         return row
 
     def _remove(self, row: SegmentRow) -> None:
         if len(self.rows) <= 1:
             return  # always keep at least one segment row
         self.rows.remove(row)
-        row.setParent(None)
+        self._rebuild()
+
+    def _rebuild(self) -> None:
+        """Re-lay the header and every row in one grid so the columns line up."""
+        while (item := self._grid.takeAt(0)) is not None:
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+        for col, label in enumerate(self._headers):
+            self._grid.addWidget(label, 0, col)
+        for r, row in enumerate(self.rows, start=1):
+            for col, cell in enumerate(row.cells()):
+                self._grid.addWidget(cell, r, col)
+        self._grid.addWidget(
+            self._add_button, len(self.rows) + 1, 0, 1, len(_SEGMENT_HEADERS) + 1
+        )
 
     def to_config(self) -> list[SegmentConfig]:
         segments = [r.to_config() for r in self.rows]
