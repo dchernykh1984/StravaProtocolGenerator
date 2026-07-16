@@ -157,6 +157,16 @@ def test_stage_empty_dates_round_trip_to_empty_string() -> None:
     assert config.date_to == ""
 
 
+def test_auto_refresh_state_round_trips_through_config() -> None:
+    window = mw.MainWindow()
+    window.apply_config(AppConfig(auto_refresh=True, refresh_interval=120))
+    assert window._auto_refresh.isChecked() is True
+    assert window._interval.value() == 120
+    collected = window.collect_config()
+    assert collected.auto_refresh is True
+    assert collected.refresh_interval == 120
+
+
 def test_two_column_top_keeps_globals_and_cup_fields() -> None:
     window = mw.MainWindow()
     assert isinstance(window._cup, mw.CupPanel)

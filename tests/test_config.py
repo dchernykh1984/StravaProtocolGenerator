@@ -22,6 +22,8 @@ def _rich_config() -> AppConfig:
         decimals=1,
         show_strava_links=True,
         log_to_file=True,
+        auto_refresh=True,
+        refresh_interval=120,
         template_file="template.html",
         output_dir="out",
         stages=[

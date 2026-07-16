@@ -354,6 +354,8 @@ class AppConfig:
     decimals: int = 0
     show_strava_links: bool = False
     log_to_file: bool = False
+    auto_refresh: bool = False
+    refresh_interval: int = 30
     template_file: str = ""
     output_dir: str = "output"
     stages: list[StageConfig] = field(default_factory=lambda: [StageConfig()])
@@ -371,6 +373,8 @@ class AppConfig:
             "decimals": self.decimals,
             "show_strava_links": self.show_strava_links,
             "log_to_file": self.log_to_file,
+            "auto_refresh": self.auto_refresh,
+            "refresh_interval": self.refresh_interval,
             "template_file": self.template_file,
             "output_dir": self.output_dir,
             "stages": [s.to_dict() for s in self.stages],
@@ -390,6 +394,8 @@ class AppConfig:
             decimals=d("decimals"),
             show_strava_links=d("show_strava_links"),
             log_to_file=d("log_to_file"),
+            auto_refresh=d("auto_refresh"),
+            refresh_interval=d("refresh_interval"),
             template_file=d("template_file"),
             output_dir=d("output_dir"),
             stages=stages or [StageConfig()],
