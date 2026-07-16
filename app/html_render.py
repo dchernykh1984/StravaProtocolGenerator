@@ -245,7 +245,7 @@ def _open_document(
     if info.sponsor:
         buf.write(f"<CENTER>{info.sponsor}</CENTER>\n")
     if title:
-        buf.write(f"{styles.top_text_style}{html.escape(title)}</FONT><BR>\n")
+        buf.write(_centered_line(html.escape(title), styles))
     _write_race_header(buf, info, styles)
 
 
