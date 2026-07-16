@@ -101,6 +101,56 @@ class Category:
 
 
 @dataclass
+class RaceInfo:
+    """Event-wide header/footer text shown on every protocol (as in FPG's Race Info).
+
+    Every ``*_label`` is the caption printed before its value, so the same fields serve
+    a race in any language. ``sponsor`` and ``bottom_text`` are inserted as raw HTML
+    (the user may paste a banner or a link there); other fields are escaped when shown.
+    """
+
+    date: str = ""
+    place: str = ""
+    weather_label: str = "Weather"
+    weather: str = ""
+    track_label: str = "Track"
+    track_conditions: str = ""
+    referee_label: str = "Referee"
+    referee: str = ""
+    secretary_label: str = "Secretary"
+    secretary: str = ""
+    organizer_label: str = "Organizer"
+    organizer: str = ""
+    sponsor: str = ""
+    bottom_text: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "date": self.date,
+            "place": self.place,
+            "weather_label": self.weather_label,
+            "weather": self.weather,
+            "track_label": self.track_label,
+            "track_conditions": self.track_conditions,
+            "referee_label": self.referee_label,
+            "referee": self.referee,
+            "secretary_label": self.secretary_label,
+            "secretary": self.secretary,
+            "organizer_label": self.organizer_label,
+            "organizer": self.organizer,
+            "sponsor": self.sponsor,
+            "bottom_text": self.bottom_text,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> RaceInfo:
+        defaults = cls()
+        return cls(
+            **{key: data.get(key, getattr(defaults, key)) for key in defaults.to_dict()}
+        )
+
+
+@dataclass
 class Participant:
     """One registered competitor, as returned by the site participants endpoint."""
 

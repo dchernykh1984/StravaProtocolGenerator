@@ -145,6 +145,23 @@ def test_generate_requests_the_segment_filters() -> None:
     assert ("this_week", "F", "following") in browser.filters
 
 
+def test_generate_renders_per_protocol_race_info() -> None:
+    from app.models import RaceInfo
+
+    cfg = _config()
+    cfg.stages[0].race_info = RaceInfo(referee="Stage ref")
+    cfg.cup.race_info = RaceInfo(organizer="Cup org")
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
+    written: dict[str, str] = {}
+    generate(cfg, browser, _FakeClient(_roster()), writer=_capture_writer(written))
+    stage_abs = next(c for p, c in written.items() if "Day_1_absolute" in p)
+    cup_abs = next(c for p, c in written.items() if "Cup_absolute" in p)
+    assert "Stage ref" in stage_abs
+    assert "Cup org" in cup_abs
+    # Each protocol carries only its own officials.
+    assert "Cup org" not in stage_abs
+
+
 def test_generate_registered_rider_grouped_by_category() -> None:
     browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
     client = _FakeClient(_roster())

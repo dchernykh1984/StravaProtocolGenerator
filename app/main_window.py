@@ -53,6 +53,7 @@ from app.config import (
     StageConfig,
 )
 from app.leaderboard_api import StravaAuthError, StravaLeaderboard
+from app.models import RaceInfo
 from app.pipeline import GenerationResult, generate
 from app.scoring import CupRule, StageRule
 from app.selenium_driver import SeleniumBrowser
@@ -339,6 +340,9 @@ class StageTab(QWidget):
         self.show_place.setChecked(stage.show_place)
         self.show_name = QCheckBox("Show name")
         self.show_name.setChecked(stage.show_name)
+        self.gap_label = QLineEdit(stage.gap_label)
+        self.show_gap = QCheckBox("Show")
+        self.show_gap.setChecked(stage.show_gap)
         self.unregistered_group_name = QLineEdit(stage.unregistered_group_name)
         self.show_unregistered = QCheckBox("Show")
         self.show_unregistered.setChecked(stage.show_unregistered)
@@ -347,6 +351,9 @@ class StageTab(QWidget):
         outer = QVBoxLayout(self)
         self._form = _form_layout()
         outer.addLayout(self._form)
+        outer.addWidget(QLabel("Race info (protocol header / footer)"))
+        self.race_info = RaceInfoPanel(stage.race_info)
+        outer.addWidget(self.race_info)
         outer.addStretch(1)
 
         self._form.addRow("Stage name", self.name)
@@ -366,6 +373,9 @@ class StageTab(QWidget):
         self._form.addRow("Place label", self.place_label)
         self._form.addRow("Name label", self.name_label)
         self._form.addRow("Result label", self.result_label)
+        self._form.addRow(
+            "Gap label", _field_with_checkbox(self.gap_label, self.show_gap)
+        )
         self._form.addRow("", self.show_place)
         self._form.addRow("", self.show_name)
         self._form.addRow(
@@ -397,10 +407,13 @@ class StageTab(QWidget):
             place_label=self.place_label.text(),
             name_label=self.name_label.text(),
             result_label=self.result_label.text(),
+            show_gap=self.show_gap.isChecked(),
+            gap_label=self.gap_label.text(),
             show_place=self.show_place.isChecked(),
             show_name=self.show_name.isChecked(),
             unregistered_group_name=self.unregistered_group_name.text(),
             show_unregistered=self.show_unregistered.isChecked(),
+            race_info=self.race_info.to_config(),
         )
 
 
@@ -409,7 +422,9 @@ class CupPanel(QWidget):
 
     def __init__(self, cup: CupConfig) -> None:
         super().__init__()
-        form = _form_layout(self)
+        outer = QVBoxLayout(self)
+        form = _form_layout()
+        outer.addLayout(form)
         self.name = QLineEdit(cup.name)
         self.rule = _combo(_CUP_RULES, cup.cup_rule.value)
         self.token = QLineEdit(cup.token)
@@ -427,6 +442,12 @@ class CupPanel(QWidget):
         self.show_place.setChecked(cup.show_place)
         self.show_name = QCheckBox("Show name")
         self.show_name.setChecked(cup.show_name)
+        self.gap_label = QLineEdit(cup.gap_label)
+        self.show_gap = QCheckBox("Show")
+        self.show_gap.setChecked(cup.show_gap)
+        self.stage_gap_label = QLineEdit(cup.stage_gap_label)
+        self.show_stage_gap = QCheckBox("Show")
+        self.show_stage_gap.setChecked(cup.show_stage_gap)
         self.unregistered_group_name = QLineEdit(cup.unregistered_group_name)
         self.show_unregistered = QCheckBox("Show")
         self.show_unregistered.setChecked(cup.show_unregistered)
@@ -445,9 +466,19 @@ class CupPanel(QWidget):
         form.addRow("Name label", _field_with_checkbox(self.name_label, self.show_name))
         form.addRow("Total label", self.total_label)
         form.addRow(
+            "Total gap label", _field_with_checkbox(self.gap_label, self.show_gap)
+        )
+        form.addRow(
+            "Stage gap label",
+            _field_with_checkbox(self.stage_gap_label, self.show_stage_gap),
+        )
+        form.addRow(
             "Unregistered group",
             _field_with_checkbox(self.unregistered_group_name, self.show_unregistered),
         )
+        outer.addWidget(QLabel("Race info (protocol header / footer)"))
+        self.race_info = RaceInfoPanel(cup.race_info)
+        outer.addWidget(self.race_info)
 
     def to_config(self) -> CupConfig:
         return CupConfig(
@@ -465,8 +496,68 @@ class CupPanel(QWidget):
             total_label=self.total_label.text(),
             show_place=self.show_place.isChecked(),
             show_name=self.show_name.isChecked(),
+            show_gap=self.show_gap.isChecked(),
+            gap_label=self.gap_label.text(),
+            show_stage_gap=self.show_stage_gap.isChecked(),
+            stage_gap_label=self.stage_gap_label.text(),
             unregistered_group_name=self.unregistered_group_name.text(),
             show_unregistered=self.show_unregistered.isChecked(),
+            race_info=self.race_info.to_config(),
+        )
+
+
+class RaceInfoPanel(QWidget):
+    """Editor for the event-wide race info shown in every protocol header/footer."""
+
+    def __init__(self, info: RaceInfo) -> None:
+        super().__init__()
+        form = _form_layout(self)
+        self.date = QLineEdit(info.date)
+        self.place = QLineEdit(info.place)
+        self.weather_label = QLineEdit(info.weather_label)
+        self.weather = QLineEdit(info.weather)
+        self.track_label = QLineEdit(info.track_label)
+        self.track_conditions = QLineEdit(info.track_conditions)
+        self.referee_label = QLineEdit(info.referee_label)
+        self.referee = QLineEdit(info.referee)
+        self.secretary_label = QLineEdit(info.secretary_label)
+        self.secretary = QLineEdit(info.secretary)
+        self.organizer_label = QLineEdit(info.organizer_label)
+        self.organizer = QLineEdit(info.organizer)
+        self.sponsor = QPlainTextEdit(info.sponsor)
+        self.bottom_text = QPlainTextEdit(info.bottom_text)
+
+        form.addRow("Date", self.date)
+        form.addRow("Place", self.place)
+        form.addRow("Weather label", self.weather_label)
+        form.addRow("Weather", self.weather)
+        form.addRow("Track label", self.track_label)
+        form.addRow("Track conditions", self.track_conditions)
+        form.addRow("Referee label", self.referee_label)
+        form.addRow("Referee", self.referee)
+        form.addRow("Secretary label", self.secretary_label)
+        form.addRow("Secretary", self.secretary)
+        form.addRow("Organizer label", self.organizer_label)
+        form.addRow("Organizer", self.organizer)
+        form.addRow("Sponsor (HTML)", self.sponsor)
+        form.addRow("Bottom text (HTML)", self.bottom_text)
+
+    def to_config(self) -> RaceInfo:
+        return RaceInfo(
+            date=self.date.text(),
+            place=self.place.text(),
+            weather_label=self.weather_label.text(),
+            weather=self.weather.text(),
+            track_label=self.track_label.text(),
+            track_conditions=self.track_conditions.text(),
+            referee_label=self.referee_label.text(),
+            referee=self.referee.text(),
+            secretary_label=self.secretary_label.text(),
+            secretary=self.secretary.text(),
+            organizer_label=self.organizer_label.text(),
+            organizer=self.organizer.text(),
+            sponsor=self.sponsor.toPlainText(),
+            bottom_text=self.bottom_text.toPlainText(),
         )
 
 

@@ -5,10 +5,12 @@ from app.html_render import (
     HtmlStyles,
     StageColumns,
     _decode_lines,
+    _gap_text,
     load_template,
     render_cup_protocol,
     render_stage_protocol,
 )
+from app.models import RaceInfo
 from app.scoring import Competitor, CupEntry, Ranked, StageEntry
 
 
@@ -166,3 +168,101 @@ def test_render_uses_custom_styles() -> None:
     html = render_stage_protocol("T", [_stage_group("A")], styles=styles)
     assert 'style="X-HEADER"' in html
     assert "<style>\nbody{}\n</style>" in html
+
+
+def test_gap_text_covers_leader_slower_and_missing() -> None:
+    assert _gap_text(300.0, 300.0, 0) == "(0:00)"  # leader shows a zero gap
+    assert _gap_text(500.0, 300.0, 0) == "(+3:20)"  # slower than the leader
+    assert _gap_text(100.0, 500.0, 0) == ""  # ahead of the ranked leader -> blank
+    assert _gap_text(None, 300.0, 0) == ""  # no result -> blank
+    assert _gap_text(300.0, None, 0) == ""  # no leader -> blank
+
+
+def _two_stage_entries() -> tuple[str, list[Ranked]]:
+    a = StageEntry(Competitor("p:1", "Fast", "A", True), [300.0], 300.0)
+    b = StageEntry(Competitor("p:2", "Slow", "A", True), [360.0], 360.0)
+    return "A", [Ranked(1, a), Ranked(2, b)]
+
+
+def test_stage_protocol_shows_gap_when_enabled() -> None:
+    html = render_stage_protocol(
+        "S",
+        [_two_stage_entries()],
+        columns=StageColumns(show_gap=True, gap_label="(gap)"),
+    )
+    # The gap caption is in the result header and the runner-up shows the gap.
+    assert "(gap)" in html
+    assert "(+1:00)" in html  # 360 - 300
+
+
+def test_cup_protocol_shows_total_and_stage_gaps() -> None:
+    a = CupEntry(Competitor("p:1", "Fast", "A", True), [300.0, 200.0], 500.0)
+    b = CupEntry(Competitor("p:2", "Slow", "A", True), [360.0, 260.0], 620.0)
+    html = render_cup_protocol(
+        "Cup",
+        [("A", [Ranked(1, a), Ranked(2, b)])],
+        ["D1", "D2"],
+        columns=CupColumns(
+            show_gap=True,
+            gap_label="(tot)",
+            show_stage_gap=True,
+            stage_gap_label="(st)",
+        ),
+    )
+    assert "(tot)" in html  # total gap caption
+    assert "(st)" in html  # stage gap caption
+    assert "(+1:00)" in html  # stage 1 gap: 360 - 300
+    assert "(+2:00)" in html  # total gap: 620 - 500
+
+
+def test_cup_stage_gap_blank_for_rider_ahead_of_ranked_leader() -> None:
+    # The rank-1 rider completed both stages; the rank-2 rider did only one, giving a
+    # smaller partial total -- their total gap is negative and must render blank.
+    leader = CupEntry(Competitor("p:1", "All", "A", True), [300.0, 300.0], 600.0)
+    partial = CupEntry(Competitor("p:2", "One", "A", True), [100.0, None], 100.0)
+    html = render_cup_protocol(
+        "Cup",
+        [("A", [Ranked(1, leader), Ranked(2, partial)])],
+        ["D1", "D2"],
+        columns=CupColumns(show_gap=True),
+    )
+    assert "(-" not in html  # never a negative gap
+
+
+def _full_race_info() -> RaceInfo:
+    return RaceInfo(
+        date="4 July 2026",
+        place="Almaty",
+        weather_label="Weather",
+        weather="+20",
+        track_label="Track",
+        track_conditions="Asphalt",
+        referee_label="Head referee",
+        referee="R. Mamaev",
+        secretary_label="Timekeeper",
+        secretary="D. Chernykh",
+        organizer_label="Organizer",
+        organizer="UBT",
+        sponsor="<img src='x'>",
+        bottom_text="<i>auto-generated</i>",
+    )
+
+
+def test_stage_protocol_renders_race_info_header_and_footer() -> None:
+    html = render_stage_protocol("S", [_stage_group("A")], race_info=_full_race_info())
+    assert "4 July 2026, Almaty" in html
+    assert "Track: Asphalt" in html
+    assert "Weather: +20" in html
+    assert "Head referee: R. Mamaev" in html
+    assert "Timekeeper: D. Chernykh" in html
+    assert "Organizer: UBT" in html
+    assert "<img src='x'>" in html  # sponsor is raw HTML
+    assert "<i>auto-generated</i>" in html  # bottom text is raw HTML
+
+
+def test_cup_protocol_renders_race_info() -> None:
+    html = render_cup_protocol(
+        "Cup", [_cup_group("A")], ["D1", "D2"], race_info=_full_race_info()
+    )
+    assert "4 July 2026, Almaty" in html
+    assert "Organizer: UBT" in html

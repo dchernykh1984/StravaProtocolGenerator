@@ -223,6 +223,8 @@ def _render_stage_outputs(
         result_label=stage.result_label,
         show_place=stage.show_place,
         show_name=stage.show_name,
+        show_gap=stage.show_gap,
+        gap_label=stage.gap_label,
         show_links=config.show_strava_links,
     )
     generic: list[StageEntry | CupEntry] = list(entries)
@@ -232,6 +234,7 @@ def _render_stage_outputs(
         styles,
         columns,
         config.decimals,
+        stage.race_info,
     )
     grp_html = render_stage_protocol(
         stage.name,
@@ -241,6 +244,7 @@ def _render_stage_outputs(
         styles,
         columns,
         config.decimals,
+        stage.race_info,
     )
     abs_path, grp_path = _stage_paths(config, stage)
     return [
@@ -289,6 +293,10 @@ def _render_cup_outputs(
         total_label=cup.total_label,
         show_place=cup.show_place,
         show_name=cup.show_name,
+        show_gap=cup.show_gap,
+        gap_label=cup.gap_label,
+        show_stage_gap=cup.show_stage_gap,
+        stage_gap_label=cup.stage_gap_label,
         show_links=config.show_strava_links,
     )
     generic: list[StageEntry | CupEntry] = list(cup_entries)
@@ -299,6 +307,7 @@ def _render_cup_outputs(
         styles,
         columns,
         config.decimals,
+        cup.race_info,
     )
     grp_html = render_cup_protocol(
         cup.name,
@@ -309,6 +318,7 @@ def _render_cup_outputs(
         styles,
         columns,
         config.decimals,
+        cup.race_info,
     )
     abs_path, grp_path = _cup_paths(config)
     return [

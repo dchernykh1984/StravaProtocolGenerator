@@ -10,6 +10,7 @@ from app.config import (
     SegmentConfig,
     StageConfig,
 )
+from app.models import RaceInfo
 from app.scoring import CupRule, StageRule
 
 
@@ -39,16 +40,23 @@ def _rich_config() -> AppConfig:
                 absolute_action=HttpAction.UPLOAD,
                 group_action=HttpAction.DELETE,
                 cup_column_label="D1",
+                show_gap=False,
+                gap_label="(d)",
                 unregistered_group_name="Others",
                 show_unregistered=False,
+                race_info=RaceInfo(referee="Day-1 ref", weather="Rain"),
             ),
         ],
         cup=CupConfig(
             name="Overall",
             token="cup-tok",
             absolute_action=HttpAction.UPLOAD,
+            show_gap=False,
+            show_stage_gap=False,
+            stage_gap_label="(sg)",
             unregistered_group_name="Guests",
             show_unregistered=False,
+            race_info=RaceInfo(organizer="UBT", sponsor="<b>x</b>"),
         ),
     )
 
