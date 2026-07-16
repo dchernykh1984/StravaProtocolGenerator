@@ -455,8 +455,8 @@ def _segment_rows(
     store = storage.load(segment.segment_id)
     if not stage.freeze_strava_data:
         presets = presets_for_segment(segment, date_from, date_to, today)
-        if presets:
-            scraped = scrape_windows(leaderboard, segment, presets)
+        scraped = scrape_windows(leaderboard, segment, presets) if presets else []
+        if scraped:  # nothing to persist (or archive) when the board was empty
             store.merge(scraped)
             storage.commit(segment.segment_id, store, scraped)
     return store.best_in_range(date_from, date_to, today)
