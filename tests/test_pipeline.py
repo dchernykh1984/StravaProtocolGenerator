@@ -378,6 +378,22 @@ def test_store_accumulates_across_runs_and_recovers_the_in_window_effort() -> No
     assert "4:00" not in stage_abs  # the out-of-window PR is filtered out
 
 
+def test_empty_scrape_does_not_commit_or_archive() -> None:
+    cfg = _config()
+    storage = _FakeStorage()
+    browser = _FakeLeaderboard({})  # the board returns no rows for seg1
+    written: dict[str, str] = {}
+    generate(
+        cfg,
+        browser,
+        _FakeClient(_roster()),
+        writer=_capture_writer(written),
+        storage=storage,
+    )
+    assert storage.stores == {}  # nothing persisted or archived for an empty scrape
+    assert len(written) == 4  # protocols still render (registered riders, no times)
+
+
 def test_default_date_range_scrapes_multiple_windows() -> None:
     from datetime import date
 
