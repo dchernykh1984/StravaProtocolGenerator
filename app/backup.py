@@ -10,14 +10,25 @@ serving that day's efforts -- the services are outside our control and not repla
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from app.config import AppConfig
+from app.models import LeaderboardRow
+from app.store import SegmentStore
 
 CONFIG_NAME = "config.json"
 RAWDATA_NAME = "rawdata.json"
+SEGMENTS_DIRNAME = "segments"
+
+_UNSAFE_NAME = re.compile(r"[^A-Za-z0-9_-]+")
+
+
+def _safe_segment_id(segment_id: str) -> str:
+    """A filesystem-safe folder/file name for a segment id (guards path traversal)."""
+    return _UNSAFE_NAME.sub("_", segment_id) or "unknown"
 
 
 def _timestamp() -> str:
@@ -97,3 +108,45 @@ def list_snapshots(history_dir: str | Path, prefix: str = "rawdata_") -> list[Pa
     if not directory.exists():
         return []
     return sorted(directory.glob(f"{prefix}*.json"))
+
+
+def segment_store_path(data_dir: str | Path, segment_id: str) -> Path:
+    """Where a segment's accumulating store lives: ``<data_dir>/segments/<id>.json``."""
+    return Path(data_dir) / SEGMENTS_DIRNAME / f"{_safe_segment_id(segment_id)}.json"
+
+
+def load_segment_store(data_dir: str | Path, segment_id: str) -> SegmentStore:
+    """Load a segment's accumulated efforts, or an empty store if there are none yet."""
+    data = _read_json(segment_store_path(data_dir, segment_id))
+    return SegmentStore.from_dict(data if isinstance(data, dict) else None)
+
+
+def save_segment_store(
+    data_dir: str | Path, segment_id: str, store: SegmentStore
+) -> Path:
+    """Write a segment's accumulated store, returning its path."""
+    path = segment_store_path(data_dir, segment_id)
+    _write_json(path, store.to_dict())
+    return path
+
+
+def archive_segment(
+    history_dir: str | Path,
+    segment_id: str,
+    rows: list[LeaderboardRow],
+    timestamp: str | None = None,
+) -> Path:
+    """Snapshot one scrape's rows under ``<history_dir>/segments/<id>/<ts>.json``.
+
+    The per-segment tree keeps an audit trail of exactly what Strava served and when, so
+    a rider who was missing at generation time can be traced back to the raw data.
+    """
+    ts = timestamp or _timestamp()
+    path = (
+        Path(history_dir)
+        / SEGMENTS_DIRNAME
+        / _safe_segment_id(segment_id)
+        / f"{ts}.json"
+    )
+    _write_json(path, {"rows": [row.to_dict() for row in rows]})
+    return path
