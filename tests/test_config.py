@@ -121,6 +121,15 @@ def test_stage_tolerates_null_race_info_block() -> None:
     assert stage.race_info == RaceInfo()
 
 
+def test_from_dict_tolerates_null_nested_blocks() -> None:
+    # A hand-edited config with null blocks must load (not crash), using defaults.
+    cfg = AppConfig.from_dict({"stages": [None], "cup": None})
+    assert cfg.stages == [StageConfig()]
+    assert cfg.cup == CupConfig()
+    assert SegmentConfig.from_dict(None) == SegmentConfig()
+    assert AppConfig.from_dict(None) == AppConfig()
+
+
 def test_segment_defaults_to_today_overall_all() -> None:
     seg = SegmentConfig()
     assert (seg.date_range, seg.gender, seg.filter_type) == (
