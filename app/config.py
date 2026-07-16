@@ -135,6 +135,7 @@ class StageConfig:
     show_name: bool = True
     disable_dnf: bool = False
     group_label: str = ""
+    show_group: bool = True
     show_year: bool = True
     year_label: str = "Year of birth"
     show_team: bool = True
@@ -178,6 +179,7 @@ class StageConfig:
             "show_name": self.show_name,
             "disable_dnf": self.disable_dnf,
             "group_label": self.group_label,
+            "show_group": self.show_group,
             "unregistered_group_name": self.unregistered_group_name,
             "show_unregistered": self.show_unregistered,
             "race_info": self.race_info.to_dict(),
@@ -218,6 +220,7 @@ class StageConfig:
             show_name=d("show_name"),
             disable_dnf=d("disable_dnf"),
             group_label=d("group_label"),
+            show_group=d("show_group"),
             unregistered_group_name=d("unregistered_group_name"),
             show_unregistered=d("show_unregistered"),
             race_info=RaceInfo.from_dict(data.get("race_info", {})),
@@ -248,6 +251,7 @@ class CupConfig:
     show_name: bool = True
     disable_dnf: bool = False
     group_label: str = ""
+    show_group: bool = True
     show_year: bool = True
     year_label: str = "Year of birth"
     show_team: bool = True
@@ -282,6 +286,7 @@ class CupConfig:
             "show_name": self.show_name,
             "disable_dnf": self.disable_dnf,
             "group_label": self.group_label,
+            "show_group": self.show_group,
             "show_year": self.show_year,
             "year_label": self.year_label,
             "show_team": self.show_team,
@@ -320,6 +325,7 @@ class CupConfig:
             show_name=d("show_name"),
             disable_dnf=d("disable_dnf"),
             group_label=d("group_label"),
+            show_group=d("show_group"),
             show_year=d("show_year"),
             year_label=d("year_label"),
             show_team=d("show_team"),

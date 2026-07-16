@@ -285,6 +285,19 @@ def test_generate_shows_year_team_city_from_registration() -> None:
     assert "1984" in stage_abs and "UBT" in stage_abs and "Almaty" in stage_abs
 
 
+def test_absolute_protocol_shows_group_column_but_group_does_not() -> None:
+    cfg = _config()
+    cfg.stages[0].group_label = "Group"
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
+    written: dict[str, str] = {}
+    generate(cfg, browser, _FakeClient(_roster()), writer=_capture_writer(written))
+    stage_abs = next(c for p, c in written.items() if "Day_1_absolute" in p)
+    stage_grp = next(c for p, c in written.items() if "Day_1_group" in p)
+    assert "<td ALIGN=center><B>Group</B></td>" in stage_abs  # group column present
+    assert "3.5+ (1)" in stage_abs  # category and place-in-group
+    assert "<B>Group</B>" not in stage_grp  # group protocol needs no group column
+
+
 def test_generate_registered_rider_grouped_by_category() -> None:
     browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
     client = _FakeClient(_roster())

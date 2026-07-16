@@ -227,6 +227,48 @@ def test_cup_protocol_shows_registration_columns() -> None:
     assert "1990" in html and "ART" in html and "Astana" in html
 
 
+def test_absolute_group_column_shows_place_in_group() -> None:
+    a = StageEntry(Competitor("p:1", "A", "M35", True), [300.0], 300.0)
+    b = StageEntry(Competitor("p:2", "B", "M40", True), [310.0], 310.0)
+    c = StageEntry(Competitor("p:3", "C", "M35", True), [320.0], 320.0)
+    dnf = StageEntry(Competitor("p:4", "D", "M35", True), [None], None)
+    ranked = [Ranked(1, a), Ranked(2, b), Ranked(3, c), Ranked(None, dnf)]
+    html = render_stage_protocol(
+        "S",
+        [("", ranked)],
+        columns=StageColumns(group_label="Group"),
+        show_group_column=True,
+    )
+    assert "<td ALIGN=center><B>Group</B></td>" in html  # header from group_label
+    assert "<td ALIGN=center>M35 (1)</td>" in html  # first M35
+    assert "<td ALIGN=center>M40 (1)</td>" in html  # first (only) M40
+    assert "<td ALIGN=center>M35 (2)</td>" in html  # second M35
+    assert "<td ALIGN=center>M35</td>" in html  # DNF rider: group, no place
+
+
+def test_absolute_group_column_absent_without_the_flag() -> None:
+    a = StageEntry(Competitor("p:1", "A", "M35", True), [300.0], 300.0)
+    html = render_stage_protocol(
+        "S", [("", [Ranked(1, a)])], columns=StageColumns(group_label="Group")
+    )
+    assert "<B>Group</B>" not in html  # group column only in the absolute view
+
+
+def test_cup_absolute_group_column() -> None:
+    a = CupEntry(Competitor("p:1", "A", "M35", True), [300.0], 300.0)
+    b = CupEntry(Competitor("p:2", "B", "M35", True), [None], None)
+    html = render_cup_protocol(
+        "Cup",
+        [("", [Ranked(1, a), Ranked(None, b)])],
+        ["D1"],
+        columns=CupColumns(group_label="Cat"),
+        show_group_column=True,
+    )
+    assert "<td ALIGN=center><B>Cat</B></td>" in html
+    assert "<td ALIGN=center>M35 (1)</td>" in html
+    assert "<td ALIGN=center>M35</td>" in html  # DNF: no place
+
+
 def test_group_heading_is_centered_with_an_optional_prefix() -> None:
     group = _stage_group("3.5+")
     # Centered, no prefix by default.
