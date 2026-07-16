@@ -206,11 +206,15 @@ class _GenerateWorker(QThread):
 
     done = Signal(object)
     failed = Signal(str)
+    request_logged = Signal(str)
 
     def __init__(self, config: AppConfig) -> None:
         super().__init__()
         self._config = config
         self._previous = load_raw_data(_RAWDATA_PATH)
+
+    def _log_request(self, url: str) -> None:
+        self.request_logged.emit(f"GET {url}")
 
     def run(self) -> None:
         try:
@@ -229,7 +233,9 @@ class _GenerateWorker(QThread):
         without a valid session fails with a clear "log in" message rather than trying
         to automate the (reCAPTCHA-guarded) sign-in.
         """
-        leaderboard = StravaLeaderboard(self._config.strava_cookies)
+        leaderboard = StravaLeaderboard(
+            self._config.strava_cookies, on_request=self._log_request
+        )
         try:
             return generate(
                 self._config, leaderboard, client, publish=True, previous=self._previous
@@ -598,6 +604,7 @@ class MainWindow(QMainWindow):
         self._worker = _GenerateWorker(config)
         self._worker.done.connect(self._on_generation_done)
         self._worker.failed.connect(self._on_generation_failed)
+        self._worker.request_logged.connect(self._append_log)
         self._worker.start()
 
     def _on_login(self) -> None:

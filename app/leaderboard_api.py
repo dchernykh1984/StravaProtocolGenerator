@@ -66,10 +66,12 @@ class StravaLeaderboard:
         cookies: list[dict[str, Any]],
         opener: Opener = urllib.request.urlopen,
         timeout: float = 30.0,
+        on_request: Callable[[str], None] | None = None,
     ) -> None:
         self._cookie = cookie_header(cookies)
         self._opener = opener
         self._timeout = timeout
+        self._on_request = on_request
 
     def page(self, segment_id: str, page: int) -> tuple[list[LeaderboardRow], int]:
         """One page of a segment's overall leaderboard: its rows and the total count."""
@@ -79,6 +81,8 @@ class StravaLeaderboard:
         return [_row(e) for e in entries], int(data.get("totalCount", len(entries)))
 
     def _fetch(self, url: str) -> dict[str, Any]:
+        if self._on_request is not None:
+            self._on_request(url)
         request = urllib.request.Request(  # noqa: S310
             url,
             headers={
