@@ -281,6 +281,18 @@ def test_cup_registration_columns_round_trip() -> None:
     assert config.show_city is False
 
 
+def test_stage_group_label_round_trips() -> None:
+    tab = mw.StageTab(StageConfig(group_label="Group"))
+    assert tab.group_label.text() == "Group"
+    assert tab.to_config().group_label == "Group"
+
+
+def test_cup_group_label_round_trips() -> None:
+    panel = mw.CupPanel(CupConfig(group_label="Cat"))
+    assert panel.group_label.text() == "Cat"
+    assert panel.to_config().group_label == "Cat"
+
+
 def test_stage_disable_dnf_round_trips() -> None:
     tab = mw.StageTab(StageConfig(disable_dnf=True))
     assert tab.disable_dnf.isChecked() is True

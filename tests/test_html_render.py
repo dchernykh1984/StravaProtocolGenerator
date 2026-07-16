@@ -227,6 +227,19 @@ def test_cup_protocol_shows_registration_columns() -> None:
     assert "1990" in html and "ART" in html and "Astana" in html
 
 
+def test_group_heading_is_centered_with_an_optional_prefix() -> None:
+    group = _stage_group("3.5+")
+    # Centered, no prefix by default.
+    plain = render_stage_protocol("S", [group])
+    assert "<CENTER>" in plain
+    assert ">3.5+</FONT></CENTER>" in plain
+    # A prefix word is prepended to the group name.
+    prefixed = render_stage_protocol(
+        "S", [group], columns=StageColumns(group_label="Group")
+    )
+    assert ">Group 3.5+</FONT></CENTER>" in prefixed
+
+
 def test_stage_protocol_marks_no_result_as_dnf() -> None:
     finished = StageEntry(Competitor("p:1", "Ivan", "A", True), [300.0], 300.0)
     no_result = StageEntry(Competitor("p:2", "Anna", "A", True), [None], None)

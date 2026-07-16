@@ -394,6 +394,7 @@ class StageTab(QWidget):
         self.absolute_file = FilePicker(stage.absolute_file)
         self.group_file = FilePicker(stage.group_file)
         self.cup_column_label = QLineEdit(stage.cup_column_label)
+        self.group_label = QLineEdit(stage.group_label)
         self.place_label = QLineEdit(stage.place_label)
         self.name_label = QLineEdit(stage.name_label)
         self.result_label = QLineEdit(stage.result_label)
@@ -441,6 +442,7 @@ class StageTab(QWidget):
         self._form.addRow("Absolute file", self.absolute_file)
         self._form.addRow("Group file", self.group_file)
         self._form.addRow("Cup column label", self.cup_column_label)
+        self._form.addRow("Group label", self.group_label)
         self._form.addRow(
             "Place label",
             _field_with_checkbox(self.place_label, self.show_place, self.disable_dnf),
@@ -487,6 +489,7 @@ class StageTab(QWidget):
             absolute_file=self.absolute_file.text().strip(),
             group_file=self.group_file.text().strip(),
             cup_column_label=self.cup_column_label.text(),
+            group_label=self.group_label.text(),
             place_label=self.place_label.text(),
             name_label=self.name_label.text(),
             result_label=self.result_label.text(),
@@ -525,6 +528,7 @@ class CupPanel(QWidget):
         self.group_action = _combo(_ACTIONS, cup.group_action.value)
         self.absolute_file = FilePicker(cup.absolute_file)
         self.group_file = FilePicker(cup.group_file)
+        self.group_label = QLineEdit(cup.group_label)
         self.place_label = QLineEdit(cup.place_label)
         self.name_label = QLineEdit(cup.name_label)
         self.total_label = QLineEdit(cup.total_label)
@@ -564,6 +568,7 @@ class CupPanel(QWidget):
         form.addRow("Group protocol", self.group_action)
         form.addRow("Absolute file", self.absolute_file)
         form.addRow("Group file", self.group_file)
+        form.addRow("Group label", self.group_label)
         form.addRow(
             "Place label",
             _field_with_checkbox(self.place_label, self.show_place, self.disable_dnf),
@@ -603,6 +608,7 @@ class CupPanel(QWidget):
             group_action=HttpAction(self.group_action.currentText()),
             absolute_file=self.absolute_file.text().strip(),
             group_file=self.group_file.text().strip(),
+            group_label=self.group_label.text(),
             place_label=self.place_label.text(),
             name_label=self.name_label.text(),
             total_label=self.total_label.text(),
