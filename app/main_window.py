@@ -393,6 +393,10 @@ class StageTab(QWidget):
         self.group_action = _combo(_ACTIONS, stage.group_action.value)
         self.absolute_file = FilePicker(stage.absolute_file)
         self.group_file = FilePicker(stage.group_file)
+        self.race_date = QLineEdit(stage.race_info.date)
+        self.race_place = QLineEdit(stage.race_info.place)
+        self.weather_label = QLineEdit(stage.race_info.weather_label)
+        self.weather = QLineEdit(stage.race_info.weather)
         self.cup_column_label = QLineEdit(stage.cup_column_label)
         self.group_label = QLineEdit(stage.group_label)
         self.show_group = QCheckBox("Show in absolute")
@@ -426,7 +430,6 @@ class StageTab(QWidget):
         outer = QVBoxLayout(self)
         self._form = _form_layout()
         outer.addLayout(self._form)
-        outer.addWidget(QLabel("Race info (protocol header / footer)"))
         self.race_info = RaceInfoPanel(stage.race_info)
         outer.addWidget(self.race_info)
         outer.addStretch(1)
@@ -443,6 +446,9 @@ class StageTab(QWidget):
         self._form.addRow("Group protocol", self.group_action)
         self._form.addRow("Absolute file", self.absolute_file)
         self._form.addRow("Group file", self.group_file)
+        self._form.addRow("Date", self.race_date)
+        self._form.addRow("Place", self.race_place)
+        self._form.addRow("Weather", _label_and_value(self.weather_label, self.weather))
         self._form.addRow("Cup column label", self.cup_column_label)
         self._form.addRow(
             "Group label", _field_with_checkbox(self.group_label, self.show_group)
@@ -511,7 +517,14 @@ class StageTab(QWidget):
             disable_dnf=self.disable_dnf.isChecked(),
             unregistered_group_name=self.unregistered_group_name.text(),
             show_unregistered=self.show_unregistered.isChecked(),
-            race_info=self.race_info.to_config(),
+            race_info=self.race_info.apply(
+                RaceInfo(
+                    date=self.race_date.text(),
+                    place=self.race_place.text(),
+                    weather_label=self.weather_label.text(),
+                    weather=self.weather.text(),
+                )
+            ),
         )
 
 
@@ -533,6 +546,10 @@ class CupPanel(QWidget):
         self.group_action = _combo(_ACTIONS, cup.group_action.value)
         self.absolute_file = FilePicker(cup.absolute_file)
         self.group_file = FilePicker(cup.group_file)
+        self.race_date = QLineEdit(cup.race_info.date)
+        self.race_place = QLineEdit(cup.race_info.place)
+        self.weather_label = QLineEdit(cup.race_info.weather_label)
+        self.weather = QLineEdit(cup.race_info.weather)
         self.group_label = QLineEdit(cup.group_label)
         self.show_group = QCheckBox("Show in absolute")
         self.show_group.setChecked(cup.show_group)
@@ -575,6 +592,9 @@ class CupPanel(QWidget):
         form.addRow("Group protocol", self.group_action)
         form.addRow("Absolute file", self.absolute_file)
         form.addRow("Group file", self.group_file)
+        form.addRow("Date", self.race_date)
+        form.addRow("Place", self.race_place)
+        form.addRow("Weather", _label_and_value(self.weather_label, self.weather))
         form.addRow(
             "Group label", _field_with_checkbox(self.group_label, self.show_group)
         )
@@ -602,7 +622,6 @@ class CupPanel(QWidget):
             "Unregistered group",
             _field_with_checkbox(self.unregistered_group_name, self.show_unregistered),
         )
-        outer.addWidget(QLabel("Race info (protocol header / footer)"))
         self.race_info = RaceInfoPanel(cup.race_info)
         outer.addWidget(self.race_info)
 
@@ -639,20 +658,27 @@ class CupPanel(QWidget):
             stage_count_label=self.stage_count_label.text(),
             unregistered_group_name=self.unregistered_group_name.text(),
             show_unregistered=self.show_unregistered.isChecked(),
-            race_info=self.race_info.to_config(),
+            race_info=self.race_info.apply(
+                RaceInfo(
+                    date=self.race_date.text(),
+                    place=self.race_place.text(),
+                    weather_label=self.weather_label.text(),
+                    weather=self.weather.text(),
+                )
+            ),
         )
 
 
 class RaceInfoPanel(QWidget):
-    """Editor for the event-wide race info shown in every protocol header/footer."""
+    """Editor for the race footer/track info (date/place/weather live in the tab form).
+
+    ``apply`` writes the panel's fields onto a ``RaceInfo`` so the enclosing tab can
+    merge them with the date/place/weather it hosts in its own form.
+    """
 
     def __init__(self, info: RaceInfo) -> None:
         super().__init__()
         form = _form_layout(self)
-        self.date = QLineEdit(info.date)
-        self.place = QLineEdit(info.place)
-        self.weather_label = QLineEdit(info.weather_label)
-        self.weather = QLineEdit(info.weather)
         self.track_label = QLineEdit(info.track_label)
         self.track_conditions = QLineEdit(info.track_conditions)
         self.referee_label = QLineEdit(info.referee_label)
@@ -666,9 +692,6 @@ class RaceInfoPanel(QWidget):
 
         # Each caption editor sits on one row next to its value; an empty value simply
         # does not appear in the protocol (app.html_render), so a blank field is fine.
-        form.addRow("Date", self.date)
-        form.addRow("Place", self.place)
-        form.addRow("Weather", _label_and_value(self.weather_label, self.weather))
         form.addRow("Track", _label_and_value(self.track_label, self.track_conditions))
         form.addRow("Referee", _label_and_value(self.referee_label, self.referee))
         form.addRow("Secretary", _label_and_value(self.secretary_label, self.secretary))
@@ -676,23 +699,19 @@ class RaceInfoPanel(QWidget):
         form.addRow("Sponsor (HTML)", self.sponsor)
         form.addRow("Bottom text (HTML)", self.bottom_text)
 
-    def to_config(self) -> RaceInfo:
-        return RaceInfo(
-            date=self.date.text(),
-            place=self.place.text(),
-            weather_label=self.weather_label.text(),
-            weather=self.weather.text(),
-            track_label=self.track_label.text(),
-            track_conditions=self.track_conditions.text(),
-            referee_label=self.referee_label.text(),
-            referee=self.referee.text(),
-            secretary_label=self.secretary_label.text(),
-            secretary=self.secretary.text(),
-            organizer_label=self.organizer_label.text(),
-            organizer=self.organizer.text(),
-            sponsor=self.sponsor.toPlainText(),
-            bottom_text=self.bottom_text.toPlainText(),
-        )
+    def apply(self, info: RaceInfo) -> RaceInfo:
+        """Copy the panel's fields onto ``info`` (keeping its date/place/weather)."""
+        info.track_label = self.track_label.text()
+        info.track_conditions = self.track_conditions.text()
+        info.referee_label = self.referee_label.text()
+        info.referee = self.referee.text()
+        info.secretary_label = self.secretary_label.text()
+        info.secretary = self.secretary.text()
+        info.organizer_label = self.organizer_label.text()
+        info.organizer = self.organizer.text()
+        info.sponsor = self.sponsor.toPlainText()
+        info.bottom_text = self.bottom_text.toPlainText()
+        return info
 
 
 class MainWindow(QMainWindow):

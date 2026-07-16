@@ -494,6 +494,7 @@ def test_manual_login_stores_and_persists_cookies(
 
 def test_auto_refresh_toggle_starts_and_stops_timer() -> None:
     window = mw.MainWindow()
+    window._auto_refresh.setChecked(False)  # known state (config may restore it on)
     window._interval.setValue(5)
     window._auto_refresh.setChecked(True)
     assert window._timer is not None
