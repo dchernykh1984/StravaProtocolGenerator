@@ -174,10 +174,26 @@ def _group_and_rank(
     return [(name, rank_entries(groups[name])) for name in ordered]
 
 
+def _by_group_then_input(
+    entries: list[StageEntry | CupEntry],
+) -> list[StageEntry | CupEntry]:
+    """Order entries by each group's first appearance, keeping registration order in it.
+
+    A stable sort, so in the absolute protocol riders with equal results (or none yet)
+    cluster by group -- in registration order -- instead of being interleaved. Groups
+    follow the order they first appear in the roster.
+    """
+    first_seen: dict[str, int] = {}
+    for entry in entries:
+        first_seen.setdefault(entry.competitor.group_name, len(first_seen))
+    return sorted(entries, key=lambda e: first_seen[e.competitor.group_name])
+
+
 def _rank_all(
     entries: list[StageEntry | CupEntry], show_unregistered: bool
 ) -> list[tuple[str, list[Ranked]]]:
-    return [("", rank_entries(_kept(entries, show_unregistered)))]
+    kept = _by_group_then_input(_kept(entries, show_unregistered))
+    return [("", rank_entries(kept))]
 
 
 def _resolve_links(
