@@ -119,6 +119,12 @@ def test_parse_leaderboard_date_absolute_and_relative() -> None:
     assert parse_leaderboard_date("garbage") is None
 
 
+def test_parse_leaderboard_date_iso_timestamp() -> None:
+    # The JSON API returns ISO timestamps like "2026-07-15T00:00:00Z".
+    assert parse_leaderboard_date("2026-07-15T00:00:00Z") == date(2026, 7, 15)
+    assert parse_leaderboard_date("2021-04-16T10:53:08Z") == date(2021, 4, 16)
+
+
 def test_filter_by_date_window() -> None:
     rows = parse_leaderboard_html(_LEADERBOARD)
     kept = filter_by_date(rows, date(2025, 8, 5), date(2025, 8, 5))

@@ -1,9 +1,9 @@
-"""Walk a segment leaderboard page by page and collect its rows.
+"""Collect a segment's leaderboard rows, page by page, and narrow to a date window.
 
-The browser is abstracted behind the ``Browser`` protocol so the pagination logic is
-unit-testable with a fake: the real Selenium implementation lives in
-``app.selenium_driver`` (coverage-omitted, since it needs a live browser). A page cap
-guards against a broken next-page control looping forever.
+The leaderboard source is abstracted behind the ``Leaderboard`` protocol so pagination
+is unit-testable with a fake; the real implementation is
+``app.leaderboard_api.StravaLeaderboard`` (Strava's JSON endpoint). A page cap guards
+against a bad total count looping forever.
 """
 
 from __future__ import annotations
@@ -12,47 +12,38 @@ from datetime import date
 from typing import Protocol
 
 from app.config import SegmentConfig
-from app.leaderboard import build_segment_url, filter_by_date, parse_leaderboard_html
+from app.leaderboard import filter_by_date
 from app.models import LeaderboardRow
 
 _MAX_PAGES = 50
 
 
-class Browser(Protocol):
-    """Minimal browser surface the scraper needs; implemented by the Selenium driver."""
+class Leaderboard(Protocol):
+    """Minimal leaderboard source the scraper needs; the API client implements it."""
 
-    def get(self, url: str) -> None:
-        """Navigate to ``url`` and wait for the leaderboard to be present."""
-
-    def page_source(self) -> str:
-        """Return the current page's HTML."""
-
-    def has_next_page(self) -> bool:
-        """Whether an enabled 'next page' control is present."""
-
-    def go_next_page(self) -> None:
-        """Click 'next page' and wait for the new results to load."""
+    def page(self, segment_id: str, page: int) -> tuple[list[LeaderboardRow], int]:
+        """Return one page of rows for ``segment_id`` and the board's total count."""
 
 
-def collect_pages(browser: Browser, url: str) -> list[LeaderboardRow]:
-    """Load ``url`` and gather leaderboard rows across every page (up to the cap)."""
-    browser.get(url)
+def collect_pages(leaderboard: Leaderboard, segment_id: str) -> list[LeaderboardRow]:
+    """Gather a segment's leaderboard rows across every page (up to the cap)."""
     rows: list[LeaderboardRow] = []
-    for _ in range(_MAX_PAGES):
-        rows.extend(parse_leaderboard_html(browser.page_source()))
-        if not browser.has_next_page():
+    for page in range(1, _MAX_PAGES + 1):
+        page_rows, total = leaderboard.page(segment_id, page)
+        if not page_rows:
             break
-        browser.go_next_page()
+        rows.extend(page_rows)
+        if len(rows) >= total:
+            break
     return rows
 
 
 def scrape_segment(
-    browser: Browser,
+    leaderboard: Leaderboard,
     segment: SegmentConfig,
     date_from: date | None = None,
     date_to: date | None = None,
 ) -> list[LeaderboardRow]:
     """Scrape one segment's leaderboard and narrow it to the collection window."""
-    url = build_segment_url(segment.segment_id, segment.filters)
-    rows = collect_pages(browser, url)
+    rows = collect_pages(leaderboard, segment.segment_id)
     return filter_by_date(rows, date_from, date_to)

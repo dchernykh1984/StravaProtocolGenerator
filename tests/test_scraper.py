@@ -1,82 +1,69 @@
-"""Tests for the leaderboard pagination scraper, driven by a fake browser."""
+"""Tests for the leaderboard pagination scraper, driven by a fake leaderboard source."""
 
 from datetime import date
 
 from app.config import SegmentConfig
+from app.models import LeaderboardRow
 from app.scraper import collect_pages, scrape_segment
 
-_PAGE_TMPL = """
-<div id="results"><table><tbody>
-  <tr><td>{rank}</td><td><a href="/athletes/{aid}">Rider {aid}</a></td>
-      <td>Aug {day}, 2025</td><td>{time}</td></tr>
-</tbody></table></div>
-"""
+
+def _row(aid: int, day: int = 5, seconds: float = 300.0) -> LeaderboardRow:
+    return LeaderboardRow(
+        athlete_name=f"Rider {aid}",
+        athlete_id=str(aid),
+        raw_result="",
+        result_seconds=seconds,
+        date=f"2025-08-{day:02d}",
+    )
 
 
-class _FakeBrowser:
-    def __init__(self, pages: list[str]) -> None:
+class _FakeLeaderboard:
+    """Serves preset pages of rows and records the (segment_id, page) requests."""
+
+    def __init__(self, pages: list[list[LeaderboardRow]], total: int | None = None):
         self._pages = pages
-        self._index = 0
-        self.visited: list[str] = []
+        self._total = total if total is not None else sum(len(p) for p in pages)
+        self.requested: list[tuple[str, int]] = []
 
-    def get(self, url: str) -> None:
-        self.visited.append(url)
-        self._index = 0
-
-    def page_source(self) -> str:
-        return self._pages[self._index]
-
-    def has_next_page(self) -> bool:
-        return self._index < len(self._pages) - 1
-
-    def go_next_page(self) -> None:
-        self._index += 1
+    def page(self, segment_id: str, page: int) -> tuple[list[LeaderboardRow], int]:
+        self.requested.append((segment_id, page))
+        rows = self._pages[page - 1] if page - 1 < len(self._pages) else []
+        return rows, self._total
 
 
 def test_collect_pages_gathers_all_pages() -> None:
-    pages = [
-        _PAGE_TMPL.format(rank=1, aid=1, day=5, time="5:00"),
-        _PAGE_TMPL.format(rank=2, aid=2, day=5, time="5:10"),
-    ]
-    browser = _FakeBrowser(pages)
-    rows = collect_pages(browser, "https://strava/seg")
+    board = _FakeLeaderboard([[_row(1)], [_row(2)]])
+    rows = collect_pages(board, "seg")
     assert [r.athlete_id for r in rows] == ["1", "2"]
-    assert browser.visited == ["https://strava/seg"]
+    assert board.requested == [("seg", 1), ("seg", 2)]
 
 
-def test_collect_pages_single_page() -> None:
-    browser = _FakeBrowser([_PAGE_TMPL.format(rank=1, aid=9, day=5, time="4:00")])
-    rows = collect_pages(browser, "u")
+def test_collect_pages_stops_once_total_reached() -> None:
+    board = _FakeLeaderboard([[_row(1)]], total=1)
+    rows = collect_pages(board, "seg")
     assert len(rows) == 1
+    assert board.requested == [("seg", 1)]  # no needless second request
+
+
+def test_collect_pages_stops_on_empty_page() -> None:
+    board = _FakeLeaderboard([[_row(1)], []], total=999)  # total lies; empty page halts
+    assert len(collect_pages(board, "seg")) == 1
 
 
 def test_collect_pages_caps_runaway_pagination() -> None:
     class _Endless:
-        def get(self, url: str) -> None:
-            pass
+        def page(self, segment_id: str, page: int) -> tuple[list[LeaderboardRow], int]:
+            return [_row(page)], 10_000  # never reaches total
 
-        def page_source(self) -> str:
-            return _PAGE_TMPL.format(rank=1, aid=1, day=5, time="5:00")
-
-        def has_next_page(self) -> bool:
-            return True
-
-        def go_next_page(self) -> None:
-            pass
-
-    rows = collect_pages(_Endless(), "u")
-    assert len(rows) == 50  # _MAX_PAGES
+    assert len(collect_pages(_Endless(), "seg")) == 50  # _MAX_PAGES
 
 
-def test_scrape_segment_builds_url_and_filters_dates() -> None:
-    pages = [
-        _PAGE_TMPL.format(rank=1, aid=1, day=5, time="5:00")
-        + _PAGE_TMPL.format(rank=2, aid=2, day=9, time="5:10")
-    ]
-    browser = _FakeBrowser(pages)
-    segment = SegmentConfig("41792375", {"filter": "club"})
+def test_scrape_segment_filters_dates() -> None:
+    board = _FakeLeaderboard([[_row(1, day=5), _row(2, day=9)]])
     rows = scrape_segment(
-        browser, segment, date_from=date(2025, 8, 5), date_to=date(2025, 8, 5)
+        board,
+        SegmentConfig("41792375"),
+        date_from=date(2025, 8, 5),
+        date_to=date(2025, 8, 5),
     )
-    assert "segments/41792375" in browser.visited[0]
     assert [r.athlete_id for r in rows] == ["1"]
