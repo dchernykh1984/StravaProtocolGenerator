@@ -3,6 +3,7 @@
 import json
 
 from app.backup import (
+    FileSegmentStorage,
     archive_segment,
     list_snapshots,
     load_config,
@@ -129,3 +130,19 @@ def test_unsafe_segment_id_is_sanitised(tmp_path) -> None:
     path = save_segment_store(tmp_path, "../evil id", SegmentStore())
     assert path.name == "_evil_id.json"  # unsafe runs collapse to one underscore
     assert path.parent == tmp_path / "segments"
+
+
+def test_file_segment_storage_commits_store_and_archive(tmp_path) -> None:
+    data_dir = tmp_path / "data"
+    history_dir = tmp_path / "history"
+    storage = FileSegmentStorage(data_dir, history_dir)
+    assert storage.load("55").rows == []  # empty until committed
+
+    store = SegmentStore()
+    scraped = [_row("1", 300.0)]
+    store.merge(scraped)
+    storage.commit("55", store, scraped)
+
+    assert storage.load("55") == store  # persisted to data/
+    archives = list((history_dir / "segments" / "55").glob("*.json"))
+    assert len(archives) == 1  # one scrape archived under the segment tree

@@ -150,3 +150,24 @@ def archive_segment(
     )
     _write_json(path, {"rows": [row.to_dict() for row in rows]})
     return path
+
+
+class FileSegmentStorage:
+    """Filesystem-backed segment storage: the store in ``data``, scrapes in ``history``.
+
+    Satisfies the pipeline's ``SegmentStorage`` protocol. ``commit`` writes the updated
+    store and archives that scrape's rows under the per-segment backup tree.
+    """
+
+    def __init__(self, data_dir: str | Path, history_dir: str | Path) -> None:
+        self._data_dir = data_dir
+        self._history_dir = history_dir
+
+    def load(self, segment_id: str) -> SegmentStore:
+        return load_segment_store(self._data_dir, segment_id)
+
+    def commit(
+        self, segment_id: str, store: SegmentStore, scraped: list[LeaderboardRow]
+    ) -> None:
+        save_segment_store(self._data_dir, segment_id, store)
+        archive_segment(self._history_dir, segment_id, scraped)

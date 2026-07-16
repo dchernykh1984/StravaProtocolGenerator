@@ -4,6 +4,7 @@ from app.config import AppConfig, CupConfig, HttpAction, SegmentConfig, StageCon
 from app.models import Category, LeaderboardRow, Participant
 from app.pipeline import generate, generate_from_snapshot
 from app.site_api import ParticipantsResponse, SiteApiError
+from app.store import SegmentStore
 from app.timeparse import parse_time
 
 
@@ -15,8 +16,29 @@ def _row(aid: str, name: str, result: str, day: int = 5) -> LeaderboardRow:
         result_seconds=parse_time(result),
         date=f"Aug {day}, 2025",
         athlete_url=f"https://www.strava.com/athletes/{aid}",
-        attempt_url=f"https://www.strava.com/activities/{aid}",
+        attempt_url=f"https://www.strava.com/activities/{aid}-{day}",
     )
+
+
+class _FakeStorage:
+    """In-memory segment storage that accumulates across generate calls."""
+
+    def __init__(self) -> None:
+        self.stores: dict[str, SegmentStore] = {}
+
+    def load(self, segment_id: str) -> SegmentStore:
+        return self.stores.get(segment_id) or SegmentStore()
+
+    def commit(
+        self, segment_id: str, store: SegmentStore, scraped: list[LeaderboardRow]
+    ) -> None:
+        self.stores[segment_id] = store
+
+
+def _store_with(*rows: LeaderboardRow) -> SegmentStore:
+    store = SegmentStore()
+    store.merge(list(rows))
+    return store
 
 
 class _FakeLeaderboard:
@@ -289,63 +311,89 @@ def test_generate_publish_error_recorded_on_output() -> None:
     assert any(o.error == "upload down" for o in uploaded)
 
 
-def test_frozen_stage_reuses_previous_snapshot_without_scraping() -> None:
+def test_frozen_stage_reads_the_store_without_scraping() -> None:
     cfg = _config()
     cfg.stages[0].freeze_strava_data = True
-    guest = LeaderboardRow(
-        athlete_name="Guest Rider",
-        athlete_id="999",
-        raw_result="4:30",
-        result_seconds=270.0,
-    )
-    previous = {"stages": [[[guest.to_dict()]]]}
-    # The browser would return a different rider; freezing must ignore it entirely.
+    storage = _FakeStorage()
+    storage.stores["seg1"] = _store_with(_row("999", "Guest Rider", "4:30"))
+    # The browser would return a different rider; freezing must not scrape at all.
     browser = _FakeLeaderboard({"seg1": _row("777", "Fresh Scrape", "5:00")})
     written: dict[str, str] = {}
-    result = generate(
+    generate(
         cfg,
         browser,
         _FakeClient(_roster()),
         writer=_capture_writer(written),
-        previous=previous,
+        storage=storage,
     )
     joined = "\n".join(written.values())
-    assert "Guest Rider" in joined  # frozen row reused
-    assert "Fresh Scrape" not in joined  # no scraping happened
+    assert "Guest Rider" in joined  # served from the store
+    assert "Fresh Scrape" not in joined
+    assert browser.filters == []  # nothing was scraped
     assert "Ivan Petrov" in joined  # roster still fetched fresh
-    assert result.raw_snapshot["stages"][0][0][0]["athlete_id"] == "999"
 
 
-def test_unfrozen_stage_scrapes_and_ignores_previous_snapshot() -> None:
+def test_unfrozen_stage_scrapes_into_the_store() -> None:
     cfg = _config()  # freeze_strava_data defaults to False
-    stale = LeaderboardRow(
-        athlete_name="Stale", athlete_id="999", raw_result="4:30", result_seconds=270.0
-    )
-    previous = {"stages": [[[stale.to_dict()]]]}
+    storage = _FakeStorage()
     browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
-    written: dict[str, str] = {}
     generate(
         cfg,
         browser,
         _FakeClient(_roster()),
-        writer=_capture_writer(written),
-        previous=previous,
+        writer=_capture_writer({}),
+        storage=storage,
     )
-    joined = "\n".join(written.values())
-    assert "Stale" not in joined  # the previous snapshot is ignored
-    assert "Ivan Petrov" in joined  # scraped fresh
+    assert browser.filters  # it scraped
+    assert [r.athlete_id for r in storage.stores["seg1"].rows] == ["111"]
 
 
-def test_frozen_stage_without_prior_data_falls_back_to_scraping() -> None:
+def test_store_accumulates_across_runs_and_recovers_the_in_window_effort() -> None:
+    # The core scenario: a race-day effort is captured, then Strava only shows a faster
+    # PR from another day; the earlier in-window effort survives in the store.
     cfg = _config()
-    cfg.stages[0].freeze_strava_data = True
-    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
+    cfg.stages[0].date_from = "2025-08-05"
+    cfg.stages[0].date_to = "2025-08-05"
+    storage = _FakeStorage()
+    on_the_day = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00", day=5)})
+    generate(
+        cfg,
+        on_the_day,
+        _FakeClient(_roster()),
+        writer=_capture_writer({}),
+        storage=storage,
+    )
+    # A later run: the board now returns only Ivan's faster PR from the 9th.
+    later = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "4:00", day=9)})
     written: dict[str, str] = {}
+    generate(
+        cfg,
+        later,
+        _FakeClient(_roster()),
+        writer=_capture_writer(written),
+        storage=storage,
+    )
+    stage_abs = next(c for p, c in written.items() if "Day_1_absolute" in p)
+    assert "5:00" in stage_abs  # the in-window effort is preserved
+    assert "4:00" not in stage_abs  # the out-of-window PR is filtered out
+
+
+def test_default_date_range_scrapes_multiple_windows() -> None:
+    from datetime import date
+
+    from app.config import DateRange
+
+    cfg = _config()
+    cfg.stages[0].segments[0].date_range = DateRange.DEFAULT
+    cfg.stages[0].date_from = "2026-06-15"
+    cfg.stages[0].date_to = "2026-08-15"
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
     generate(
         cfg,
         browser,
         _FakeClient(_roster()),
-        writer=_capture_writer(written),
-        previous={},
+        writer=_capture_writer({}),
+        today=date(2026, 7, 15),
     )
-    assert "Ivan Petrov" in "\n".join(written.values())  # nothing to freeze -> scrape
+    ranges = [r for r, _, _ in browser.filters]
+    assert "today" in ranges and "this_week" in ranges  # several windows scraped
