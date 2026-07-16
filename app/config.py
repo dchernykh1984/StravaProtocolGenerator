@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from app.models import RaceInfo
 from app.scoring import CupRule, StageRule
 
 
@@ -126,8 +127,11 @@ class StageConfig:
     result_label: str = "Result"
     show_place: bool = True
     show_name: bool = True
+    show_gap: bool = True
+    gap_label: str = "(gap)"
     unregistered_group_name: str = "Not registered"
     show_unregistered: bool = True
+    race_info: RaceInfo = field(default_factory=RaceInfo)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -148,10 +152,13 @@ class StageConfig:
             "place_label": self.place_label,
             "name_label": self.name_label,
             "result_label": self.result_label,
+            "show_gap": self.show_gap,
+            "gap_label": self.gap_label,
             "show_place": self.show_place,
             "show_name": self.show_name,
             "unregistered_group_name": self.unregistered_group_name,
             "show_unregistered": self.show_unregistered,
+            "race_info": self.race_info.to_dict(),
         }
 
     @classmethod
@@ -176,10 +183,13 @@ class StageConfig:
             place_label=d("place_label"),
             name_label=d("name_label"),
             result_label=d("result_label"),
+            show_gap=d("show_gap"),
+            gap_label=d("gap_label"),
             show_place=d("show_place"),
             show_name=d("show_name"),
             unregistered_group_name=d("unregistered_group_name"),
             show_unregistered=d("show_unregistered"),
+            race_info=RaceInfo.from_dict(data.get("race_info", {})),
         )
 
     def column_label(self) -> str:
@@ -205,8 +215,13 @@ class CupConfig:
     total_label: str = "Total"
     show_place: bool = True
     show_name: bool = True
+    show_gap: bool = True
+    gap_label: str = "(gap)"
+    show_stage_gap: bool = True
+    stage_gap_label: str = "(gap)"
     unregistered_group_name: str = "Not registered"
     show_unregistered: bool = True
+    race_info: RaceInfo = field(default_factory=RaceInfo)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -224,8 +239,13 @@ class CupConfig:
             "total_label": self.total_label,
             "show_place": self.show_place,
             "show_name": self.show_name,
+            "show_gap": self.show_gap,
+            "gap_label": self.gap_label,
+            "show_stage_gap": self.show_stage_gap,
+            "stage_gap_label": self.stage_gap_label,
             "unregistered_group_name": self.unregistered_group_name,
             "show_unregistered": self.show_unregistered,
+            "race_info": self.race_info.to_dict(),
         }
 
     @classmethod
@@ -246,8 +266,13 @@ class CupConfig:
             total_label=d("total_label"),
             show_place=d("show_place"),
             show_name=d("show_name"),
+            show_gap=d("show_gap"),
+            gap_label=d("gap_label"),
+            show_stage_gap=d("show_stage_gap"),
+            stage_gap_label=d("stage_gap_label"),
             unregistered_group_name=d("unregistered_group_name"),
             show_unregistered=d("show_unregistered"),
+            race_info=RaceInfo.from_dict(data.get("race_info", {})),
         )
 
 

@@ -243,6 +243,53 @@ def test_cup_unregistered_group_round_trips() -> None:
     assert config.show_unregistered is False
 
 
+def test_stage_gap_round_trips() -> None:
+    tab = mw.StageTab(StageConfig(show_gap=False, gap_label="(diff)"))
+    assert tab.show_gap.isChecked() is False
+    assert tab.gap_label.text() == "(diff)"
+    config = tab.to_config()
+    assert config.show_gap is False
+    assert config.gap_label == "(diff)"
+
+
+def test_cup_gaps_round_trip() -> None:
+    panel = mw.CupPanel(
+        CupConfig(
+            show_gap=False,
+            gap_label="(tot)",
+            show_stage_gap=False,
+            stage_gap_label="(st)",
+        )
+    )
+    config = panel.to_config()
+    assert config.show_gap is False
+    assert config.gap_label == "(tot)"
+    assert config.show_stage_gap is False
+    assert config.stage_gap_label == "(st)"
+
+
+def test_stage_race_info_round_trips() -> None:
+    from app.models import RaceInfo
+
+    info = RaceInfo(referee="Stage referee", weather="Sunny")
+    tab = mw.StageTab(StageConfig(race_info=info))
+    assert tab.race_info.referee.text() == "Stage referee"
+    collected = tab.to_config().race_info
+    assert collected.referee == "Stage referee"
+    assert collected.weather == "Sunny"
+
+
+def test_cup_race_info_round_trips() -> None:
+    from app.models import RaceInfo
+
+    info = RaceInfo(referee="Cup referee", organizer="UBT", sponsor="<b>ad</b>")
+    panel = mw.CupPanel(CupConfig(race_info=info))
+    assert panel.race_info.organizer.text() == "UBT"
+    collected = panel.to_config().race_info
+    assert collected.referee == "Cup referee"
+    assert collected.sponsor == "<b>ad</b>"
+
+
 def test_stage_file_fields_are_file_pickers() -> None:
     tab = mw.StageTab(StageConfig())
     assert isinstance(tab.absolute_file, mw.FilePicker)

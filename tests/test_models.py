@@ -1,6 +1,22 @@
 """Tests for the core input data models."""
 
-from app.models import Category, LeaderboardRow, Participant
+from app.models import Category, LeaderboardRow, Participant, RaceInfo
+
+
+def test_race_info_roundtrips_and_defaults_missing_keys() -> None:
+    info = RaceInfo(
+        date="4 July 2026",
+        place="Almaty",
+        referee="R. Mamaev",
+        sponsor="<img>",
+        bottom_text="<i>x</i>",
+    )
+    assert RaceInfo.from_dict(info.to_dict()) == info
+    # Unknown keys are ignored and missing keys fall back to the defaults.
+    restored = RaceInfo.from_dict({"weather": "Sunny", "unknown": 1})
+    assert restored.weather == "Sunny"
+    assert restored.weather_label == "Weather"
+    assert restored == RaceInfo(weather="Sunny")
 
 
 def test_leaderboard_row_from_scrape_parses_result_and_strips() -> None:

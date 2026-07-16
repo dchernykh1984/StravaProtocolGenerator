@@ -10,11 +10,13 @@ pass data already grouped and ranked (see ``app.scoring``) as ``(group_name, ran
 from __future__ import annotations
 
 import html
+from collections.abc import Callable
 from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
 from typing import cast
 
+from app.models import RaceInfo
 from app.scoring import CupEntry, Ranked, StageEntry
 from app.timeparse import format_time
 
@@ -87,6 +89,8 @@ class StageColumns:
     result_label: str = "Result"
     show_place: bool = True
     show_name: bool = True
+    show_gap: bool = False
+    gap_label: str = "(gap)"
     show_links: bool = False
 
 
@@ -99,6 +103,10 @@ class CupColumns:
     total_label: str = "Total"
     show_place: bool = True
     show_name: bool = True
+    show_gap: bool = False
+    gap_label: str = "(gap)"
+    show_stage_gap: bool = False
+    stage_gap_label: str = "(gap)"
     show_links: bool = False
 
 
@@ -119,28 +127,126 @@ def _header_cell(label: str) -> str:
     return f"<td ALIGN=center><B>{html.escape(label)}</B></td>"
 
 
+def _header_cell_with_sub(label: str, sub: str, styles: HtmlStyles) -> str:
+    """A header cell with a smaller second line (e.g. the gap-to-leader caption)."""
+    return (
+        f"<td ALIGN=center><B>{html.escape(label)}<BR>"
+        f"{styles.additional_text_top_style}{html.escape(sub)}</FONT></B></td>"
+    )
+
+
+def _link_inner(value: str, url: str) -> str:
+    """The escaped ``value`` linked to ``url`` (bare text when there is no ``url``)."""
+    if not url:
+        return html.escape(value)
+    safe_url = html.escape(url, quote=True)
+    return (
+        f'<a href="{safe_url}" target="_blank" rel="noopener">{html.escape(value)}</a>'
+    )
+
+
 def _cell(value: str) -> str:
     return f"<td ALIGN=center>{html.escape(value)}</td>"
 
 
 def _link_cell(value: str, url: str) -> str:
     """A centered cell whose text links to ``url`` (a plain cell when no ``url``)."""
-    if not url:
-        return _cell(value)
-    safe_url = html.escape(url, quote=True)
-    return (
-        f'<td ALIGN=center><a href="{safe_url}" target="_blank" '
-        f'rel="noopener">{html.escape(value)}</a></td>'
+    return f"<td ALIGN=center>{_link_inner(value, url)}</td>"
+
+
+def _gap_text(value: float | None, leader: float | None, decimals: int) -> str:
+    """The ``(+diff)`` gap of ``value`` behind ``leader``; empty when not applicable.
+
+    Blank when either time is missing or ``value`` is ahead of the ranked leader (a
+    negative gap, which happens in the cup when a rider with fewer stages has a smaller
+    partial total than the winner).
+    """
+    if value is None or leader is None:
+        return ""
+    diff = value - leader
+    formatted = format_time(diff, decimals)
+    if not formatted:
+        return ""
+    sign = "+" if diff > 0 else ""
+    return f"({sign}{formatted})"
+
+
+def _value_cell(inner: str, gap: str, styles: HtmlStyles) -> str:
+    """A centered result cell, with the gap on a second line when one is given."""
+    if gap:
+        inner += f"<BR>{styles.additional_text_style}{html.escape(gap)}</FONT>"
+    return f"<td ALIGN=center>{inner}</td>"
+
+
+def _first_value(
+    ranked: list[Ranked], pick: Callable[[StageEntry | CupEntry], float | None]
+) -> float | None:
+    """The leader's value: the first ranked entry with one (ranked is best-first)."""
+    for item in ranked:
+        value = pick(item.entry)
+        if value is not None:
+            return value
+    return None
+
+
+def _stage_leader(ranked: list[Ranked], index: int) -> float | None:
+    """Fastest value on stage ``index`` among a group's cup entries, or ``None``."""
+    values: list[float] = []
+    for item in ranked:
+        entry = cast(CupEntry, item.entry)
+        if index < len(entry.stage_values) and entry.stage_values[index] is not None:
+            values.append(cast(float, entry.stage_values[index]))
+    return min(values) if values else None
+
+
+def _centered_line(text: str, styles: HtmlStyles) -> str:
+    return f"{styles.top_text_style}<B><CENTER>{text}</CENTER></B></FONT><BR>\n"
+
+
+def _write_race_header(buf: StringIO, info: RaceInfo, styles: HtmlStyles) -> None:
+    """Write the race metadata lines (date/place, track, weather) below the title."""
+    date_place = ", ".join(p for p in (info.date, info.place) if p)
+    if date_place:
+        buf.write(_centered_line(html.escape(date_place), styles))
+    if info.track_conditions:
+        label = html.escape(info.track_label)
+        buf.write(
+            _centered_line(f"{label}: {html.escape(info.track_conditions)}", styles)
+        )
+    if info.weather:
+        label = html.escape(info.weather_label)
+        buf.write(_centered_line(f"{label}: {html.escape(info.weather)}", styles))
+
+
+def _write_race_footer(buf: StringIO, info: RaceInfo) -> None:
+    """Write the officials block (right-aligned) and the raw bottom text, if any."""
+    officials = (
+        (info.organizer_label, info.organizer),
+        (info.referee_label, info.referee),
+        (info.secretary_label, info.secretary),
     )
+    for label, value in officials:
+        if value:
+            buf.write(
+                f'<FONT SIZE="3"><B><p align="right">{html.escape(label)}: '
+                f"{html.escape(value)}</p></B></FONT>\n"
+            )
+    if info.bottom_text:
+        buf.write(info.bottom_text + "\n")
 
 
-def _open_document(buf: StringIO, title: str, styles: HtmlStyles) -> None:
+def _open_document(
+    buf: StringIO, title: str, styles: HtmlStyles, info: RaceInfo
+) -> None:
     buf.write('<html>\n<head>\n<meta charset="utf-8">\n')
     if styles.common_style_text:
         buf.write(f"<style>\n{styles.common_style_text}\n</style>\n")
     buf.write("</head>\n<body>\n")
+    if info.sponsor:
+        buf.write(f"<CENTER>{info.sponsor}</CENTER>\n")
     if title:
         buf.write(f"{styles.top_text_style}{html.escape(title)}</FONT><BR>\n")
+    _write_race_header(buf, info, styles)
 
 
 def _open_table(buf: StringIO, group_name: str, styles: HtmlStyles) -> None:
@@ -157,12 +263,18 @@ def render_stage_protocol(
     styles: HtmlStyles | None = None,
     columns: StageColumns | None = None,
     decimals: int = 0,
+    race_info: RaceInfo | None = None,
 ) -> str:
-    """Render a stage protocol: place / name / result, one table per group."""
+    """Render a stage protocol: place / name / result, one table per group.
+
+    With ``columns.show_gap`` the result carries the gap to that group's leader on a
+    second line; ``race_info`` adds the shared header/footer (date, weather, officials).
+    """
     styles = styles or HtmlStyles()
     columns = columns or StageColumns()
+    info = race_info or RaceInfo()
     buf = StringIO()
-    _open_document(buf, title, styles)
+    _open_document(buf, title, styles, info)
     for group_name, ranked in groups:
         _open_table(buf, group_name, styles)
         buf.write(f'<tr style="{styles.top_line_style}">')
@@ -170,7 +282,14 @@ def render_stage_protocol(
             buf.write(_header_cell(columns.place_label))
         if columns.show_name:
             buf.write(_header_cell(columns.name_label))
-        buf.write(_header_cell(columns.result_label) + "</tr>\n")
+        if columns.show_gap:
+            buf.write(
+                _header_cell_with_sub(columns.result_label, columns.gap_label, styles)
+            )
+        else:
+            buf.write(_header_cell(columns.result_label))
+        buf.write("</tr>\n")
+        leader = _first_value(ranked, lambda e: cast(StageEntry, e).value)
         for i, item in enumerate(ranked):
             entry = cast(StageEntry, item.entry)
             buf.write(f'<tr style="{_row_style(styles, i)}">')
@@ -182,8 +301,11 @@ def render_stage_protocol(
                 buf.write(_link_cell(name, url))
             result = format_time(entry.value, decimals)
             result_url = entry.result_url if columns.show_links else ""
-            buf.write(_link_cell(result, result_url) + "</tr>\n")
+            gap = _gap_text(entry.value, leader, decimals) if columns.show_gap else ""
+            buf.write(_value_cell(_link_inner(result, result_url), gap, styles))
+            buf.write("</tr>\n")
         buf.write("</table>\n<BR>\n")
+    _write_race_footer(buf, info)
     buf.write("</body>\n</html>\n")
     return buf.getvalue()
 
@@ -195,38 +317,87 @@ def render_cup_protocol(
     styles: HtmlStyles | None = None,
     columns: CupColumns | None = None,
     decimals: int = 0,
+    race_info: RaceInfo | None = None,
 ) -> str:
     """Render the cup protocol: place / name / one column per stage / total.
 
     Each stage is shown as a "lap" column headed by its label from ``stage_labels``.
+    ``columns.show_stage_gap`` adds each rider's gap to that stage's leader under the
+    stage value; ``columns.show_gap`` adds the gap to the overall leader under the
+    total. ``race_info`` adds the shared header/footer (date, weather, officials).
     """
     styles = styles or HtmlStyles()
     columns = columns or CupColumns()
+    info = race_info or RaceInfo()
     buf = StringIO()
-    _open_document(buf, title, styles)
+    _open_document(buf, title, styles, info)
     for group_name, ranked in groups:
         _open_table(buf, group_name, styles)
-        buf.write(f'<tr style="{styles.top_line_style}">')
-        if columns.show_place:
-            buf.write(_header_cell(columns.place_label))
-        if columns.show_name:
-            buf.write(_header_cell(columns.name_label))
-        for label in stage_labels:
-            buf.write(_header_cell(label))
-        buf.write(_header_cell(columns.total_label) + "</tr>\n")
+        _write_cup_header(buf, stage_labels, columns, styles)
+        stage_leaders = [_stage_leader(ranked, j) for j in range(len(stage_labels))]
+        total_leader = _first_value(ranked, lambda e: cast(CupEntry, e).total)
         for i, item in enumerate(ranked):
-            entry = cast(CupEntry, item.entry)
             buf.write(f'<tr style="{_row_style(styles, i)}">')
-            if columns.show_place:
-                buf.write(_cell(_place_text(item.place)))
-            if columns.show_name:
-                name = entry.competitor.name
-                url = entry.competitor.athlete_url if columns.show_links else ""
-                buf.write(_link_cell(name, url))
-            for j, value in enumerate(entry.stage_values):
-                stage_url = _stage_url(entry, j) if columns.show_links else ""
-                buf.write(_link_cell(format_time(value, decimals), stage_url))
-            buf.write(_cell(format_time(entry.total, decimals)) + "</tr>\n")
+            _write_cup_row(
+                buf, item, columns, styles, decimals, stage_leaders, total_leader
+            )
+            buf.write("</tr>\n")
         buf.write("</table>\n<BR>\n")
+    _write_race_footer(buf, info)
     buf.write("</body>\n</html>\n")
     return buf.getvalue()
+
+
+def _write_cup_header(
+    buf: StringIO,
+    stage_labels: list[str],
+    columns: CupColumns,
+    styles: HtmlStyles,
+) -> None:
+    buf.write(f'<tr style="{styles.top_line_style}">')
+    if columns.show_place:
+        buf.write(_header_cell(columns.place_label))
+    if columns.show_name:
+        buf.write(_header_cell(columns.name_label))
+    for label in stage_labels:
+        if columns.show_stage_gap:
+            buf.write(_header_cell_with_sub(label, columns.stage_gap_label, styles))
+        else:
+            buf.write(_header_cell(label))
+    if columns.show_gap:
+        buf.write(_header_cell_with_sub(columns.total_label, columns.gap_label, styles))
+    else:
+        buf.write(_header_cell(columns.total_label))
+    buf.write("</tr>\n")
+
+
+def _write_cup_row(
+    buf: StringIO,
+    item: Ranked,
+    columns: CupColumns,
+    styles: HtmlStyles,
+    decimals: int,
+    stage_leaders: list[float | None],
+    total_leader: float | None,
+) -> None:
+    entry = cast(CupEntry, item.entry)
+    if columns.show_place:
+        buf.write(_cell(_place_text(item.place)))
+    if columns.show_name:
+        url = entry.competitor.athlete_url if columns.show_links else ""
+        buf.write(_link_cell(entry.competitor.name, url))
+    for j, value in enumerate(entry.stage_values):
+        stage_url = _stage_url(entry, j) if columns.show_links else ""
+        leader = stage_leaders[j] if j < len(stage_leaders) else None
+        gap = _gap_text(value, leader, decimals) if columns.show_stage_gap else ""
+        buf.write(
+            _value_cell(
+                _link_inner(format_time(value, decimals), stage_url), gap, styles
+            )
+        )
+    total_gap = (
+        _gap_text(entry.total, total_leader, decimals) if columns.show_gap else ""
+    )
+    buf.write(
+        _value_cell(html.escape(format_time(entry.total, decimals)), total_gap, styles)
+    )
