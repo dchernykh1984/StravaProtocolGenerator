@@ -79,6 +79,13 @@ def _combo(values: list[str], current: str) -> QComboBox:
     return box
 
 
+def _form_layout(parent: QWidget | None = None) -> QFormLayout:
+    """A form whose fields grow to fill the width, so values are not cramped."""
+    form = QFormLayout(parent) if parent is not None else QFormLayout()
+    form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+    return form
+
+
 def _field_with_checkbox(field: QWidget, checkbox: QCheckBox) -> QHBoxLayout:
     """Pack a field and a trailing checkbox onto one form row to save height."""
     row = QHBoxLayout()
@@ -336,51 +343,40 @@ class StageTab(QWidget):
         self.show_unregistered = QCheckBox("Show")
         self.show_unregistered.setChecked(stage.show_unregistered)
 
-        # Two form columns halve the stage's height so the window fits on screen.
-        columns = QHBoxLayout(self)
-        left = QVBoxLayout()
-        right = QVBoxLayout()
-        self._left_form = QFormLayout()
-        self._right_form = QFormLayout()
-        left.addLayout(self._left_form)
-        left.addStretch(1)
-        right.addLayout(self._right_form)
-        right.addStretch(1)
-        columns.addLayout(left, stretch=1)
-        columns.addLayout(right, stretch=1)
+        # One column, so the wide fields (segments, files) have the full width.
+        outer = QVBoxLayout(self)
+        self._form = _form_layout()
+        outer.addLayout(self._form)
+        outer.addStretch(1)
 
-        self._left_form.addRow("Stage name", self.name)
-        self._left_form.addRow("Segments", self.segments)
-        self._left_form.addRow("Feed to cup", self.rule)
-        self._left_form.addRow("Date from (including)", self.date_from)
-        self._left_form.addRow("Date to (including)", self.date_to)
-        self._left_form.addRow("Broadcast token (to Site URL)", self.token)
-        self._left_form.addRow("", self.is_live)
-        self._left_form.addRow("", self.freeze_strava_data)
-        self._left_form.addRow("Stage label", self.stage_label)
-
-        self._right_form.addRow("Absolute protocol", self.absolute_action)
-        self._right_form.addRow("Group protocol", self.group_action)
-        self._right_form.addRow("Absolute file", self.absolute_file)
-        self._right_form.addRow("Group file", self.group_file)
-        self._right_form.addRow("Cup column label", self.cup_column_label)
-        self._right_form.addRow("Place label", self.place_label)
-        self._right_form.addRow("Name label", self.name_label)
-        self._right_form.addRow("Result label", self.result_label)
-        self._right_form.addRow("", self.show_place)
-        self._right_form.addRow("", self.show_name)
-        self._right_form.addRow(
+        self._form.addRow("Stage name", self.name)
+        self._form.addRow("Segments", self.segments)
+        self._form.addRow("Feed to cup", self.rule)
+        self._form.addRow("Date from (including)", self.date_from)
+        self._form.addRow("Date to (including)", self.date_to)
+        self._form.addRow("Broadcast token (to Site URL)", self.token)
+        self._form.addRow("", self.is_live)
+        self._form.addRow("", self.freeze_strava_data)
+        self._form.addRow("Stage label", self.stage_label)
+        self._form.addRow("Absolute protocol", self.absolute_action)
+        self._form.addRow("Group protocol", self.group_action)
+        self._form.addRow("Absolute file", self.absolute_file)
+        self._form.addRow("Group file", self.group_file)
+        self._form.addRow("Cup column label", self.cup_column_label)
+        self._form.addRow("Place label", self.place_label)
+        self._form.addRow("Name label", self.name_label)
+        self._form.addRow("Result label", self.result_label)
+        self._form.addRow("", self.show_place)
+        self._form.addRow("", self.show_name)
+        self._form.addRow(
             "Unregistered group",
             _field_with_checkbox(self.unregistered_group_name, self.show_unregistered),
         )
 
     def field_label(self, widget: QWidget) -> str:
         """Return the text of the form label paired with ``widget`` (for tests/UX)."""
-        for form in (self._left_form, self._right_form):
-            label = form.labelForField(widget)
-            if label is not None:
-                return label.text()
-        return ""
+        label = self._form.labelForField(widget)
+        return label.text() if label is not None else ""
 
     def to_config(self) -> StageConfig:
         return StageConfig(
@@ -413,7 +409,7 @@ class CupPanel(QWidget):
 
     def __init__(self, cup: CupConfig) -> None:
         super().__init__()
-        form = QFormLayout(self)
+        form = _form_layout(self)
         self.name = QLineEdit(cup.name)
         self.rule = _combo(_CUP_RULES, cup.cup_rule.value)
         self.token = QLineEdit(cup.token)
@@ -526,7 +522,7 @@ class MainWindow(QMainWindow):
     # -- construction helpers ------------------------------------------------
 
     def _build_globals(self) -> dict[str, QLineEdit]:
-        self._globals_layout = QFormLayout()
+        self._globals_layout = _form_layout()
         widgets: dict[str, QLineEdit] = {
             "site_url": QLineEdit(),
             "roster_token": QLineEdit(),
