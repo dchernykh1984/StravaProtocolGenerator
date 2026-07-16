@@ -96,25 +96,46 @@ def _safe_filename(name: str) -> str:
     return "".join(keep) or "protocol"
 
 
+def _kept(
+    entries: list[StageEntry | CupEntry], show_unregistered: bool
+) -> list[StageEntry | CupEntry]:
+    """Entries for a protocol: unregistered riders are dropped when hidden."""
+    return [e for e in entries if e.competitor.is_registered or show_unregistered]
+
+
 def _group_and_rank(
-    entries: list[StageEntry | CupEntry], group_order: list[str]
+    entries: list[StageEntry | CupEntry],
+    categories: list[str],
+    unregistered_name: str,
+    show_unregistered: bool,
 ) -> list[tuple[str, list[Ranked]]]:
-    """Split entries into groups, order groups by ``group_order``, rank within each."""
+    """Split entries into groups (categories, then the named unregistered group), rank.
+
+    Unregistered riders are placed under ``unregistered_name`` (or dropped when
+    ``show_unregistered`` is off); groups follow ``categories`` order, with the
+    unregistered group last.
+    """
     groups: dict[str, list[StageEntry | CupEntry]] = {}
     seen: list[str] = []
-    for entry in entries:
-        name = entry.competitor.group_name
+    for entry in _kept(entries, show_unregistered):
+        if entry.competitor.is_registered:
+            name = entry.competitor.group_name
+        else:
+            name = unregistered_name
         if name not in groups:
             groups[name] = []
             seen.append(name)
         groups[name].append(entry)
-    ordered = [g for g in group_order if g in groups]
-    ordered += [g for g in seen if g not in group_order]
+    order = [*categories, unregistered_name]
+    ordered = [g for g in order if g in groups]
+    ordered += [g for g in seen if g not in order]
     return [(name, rank_entries(groups[name])) for name in ordered]
 
 
-def _rank_all(entries: list[StageEntry | CupEntry]) -> list[tuple[str, list[Ranked]]]:
-    return [("", rank_entries(entries))]
+def _rank_all(
+    entries: list[StageEntry | CupEntry], show_unregistered: bool
+) -> list[tuple[str, list[Ranked]]]:
+    return [("", rank_entries(_kept(entries, show_unregistered)))]
 
 
 def _styles(config: AppConfig) -> HtmlStyles:
@@ -187,10 +208,6 @@ def _emit(
     return output
 
 
-def _stage_group_order(config: AppConfig, categories: list[str]) -> list[str]:
-    return [*categories, config.unregistered_group_name]
-
-
 def _render_stage_outputs(
     config: AppConfig,
     stage: StageConfig,
@@ -210,11 +227,17 @@ def _render_stage_outputs(
     )
     generic: list[StageEntry | CupEntry] = list(entries)
     abs_html = render_stage_protocol(
-        stage.name, _rank_all(generic), styles, columns, config.decimals
+        stage.name,
+        _rank_all(generic, stage.show_unregistered),
+        styles,
+        columns,
+        config.decimals,
     )
     grp_html = render_stage_protocol(
         stage.name,
-        _group_and_rank(generic, _stage_group_order(config, categories)),
+        _group_and_rank(
+            generic, categories, stage.unregistered_group_name, stage.show_unregistered
+        ),
         styles,
         columns,
         config.decimals,
@@ -270,11 +293,18 @@ def _render_cup_outputs(
     )
     generic: list[StageEntry | CupEntry] = list(cup_entries)
     abs_html = render_cup_protocol(
-        cup.name, _rank_all(generic), stage_labels, styles, columns, config.decimals
+        cup.name,
+        _rank_all(generic, cup.show_unregistered),
+        stage_labels,
+        styles,
+        columns,
+        config.decimals,
     )
     grp_html = render_cup_protocol(
         cup.name,
-        _group_and_rank(generic, _stage_group_order(config, categories)),
+        _group_and_rank(
+            generic, categories, cup.unregistered_group_name, cup.show_unregistered
+        ),
         stage_labels,
         styles,
         columns,
@@ -320,9 +350,7 @@ def _build_entries(
     per_stage: list[list[StageEntry]] = []
     for seg_rows in stages_rows:
         matches = [match_rows_to_participants(rows, participants) for rows in seg_rows]
-        per_stage.append(
-            build_stage_entries(matches, participants, config.unregistered_group_name)
-        )
+        per_stage.append(build_stage_entries(matches, participants))
     cup = build_cup_entries(
         per_stage, [s.rule for s in config.stages], config.cup.cup_rule
     )

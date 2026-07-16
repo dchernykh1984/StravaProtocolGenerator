@@ -266,6 +266,9 @@ class StageTab(QWidget):
         self.show_place.setChecked(stage.show_place)
         self.show_name = QCheckBox("Show name")
         self.show_name.setChecked(stage.show_name)
+        self.unregistered_group_name = QLineEdit(stage.unregistered_group_name)
+        self.show_unregistered = QCheckBox("Show")
+        self.show_unregistered.setChecked(stage.show_unregistered)
 
         # Two form columns halve the stage's height so the window fits on screen.
         columns = QHBoxLayout(self)
@@ -300,6 +303,10 @@ class StageTab(QWidget):
         self._right_form.addRow("Result label", self.result_label)
         self._right_form.addRow("", self.show_place)
         self._right_form.addRow("", self.show_name)
+        self._right_form.addRow(
+            "Unregistered group",
+            _field_with_checkbox(self.unregistered_group_name, self.show_unregistered),
+        )
 
     def field_label(self, widget: QWidget) -> str:
         """Return the text of the form label paired with ``widget`` (for tests/UX)."""
@@ -330,6 +337,8 @@ class StageTab(QWidget):
             result_label=self.result_label.text(),
             show_place=self.show_place.isChecked(),
             show_name=self.show_name.isChecked(),
+            unregistered_group_name=self.unregistered_group_name.text(),
+            show_unregistered=self.show_unregistered.isChecked(),
         )
 
 
@@ -356,6 +365,9 @@ class CupPanel(QWidget):
         self.show_place.setChecked(cup.show_place)
         self.show_name = QCheckBox("Show name")
         self.show_name.setChecked(cup.show_name)
+        self.unregistered_group_name = QLineEdit(cup.unregistered_group_name)
+        self.show_unregistered = QCheckBox("Show")
+        self.show_unregistered.setChecked(cup.show_unregistered)
 
         form.addRow("Cup name", self.name)
         form.addRow("Combine rule", self.rule)
@@ -370,6 +382,10 @@ class CupPanel(QWidget):
         )
         form.addRow("Name label", _field_with_checkbox(self.name_label, self.show_name))
         form.addRow("Total label", self.total_label)
+        form.addRow(
+            "Unregistered group",
+            _field_with_checkbox(self.unregistered_group_name, self.show_unregistered),
+        )
 
     def to_config(self) -> CupConfig:
         return CupConfig(
@@ -387,6 +403,8 @@ class CupPanel(QWidget):
             total_label=self.total_label.text(),
             show_place=self.show_place.isChecked(),
             show_name=self.show_name.isChecked(),
+            unregistered_group_name=self.unregistered_group_name.text(),
+            show_unregistered=self.show_unregistered.isChecked(),
         )
 
 
@@ -446,7 +464,6 @@ class MainWindow(QMainWindow):
         widgets: dict[str, QLineEdit] = {
             "site_url": QLineEdit(),
             "roster_token": QLineEdit(),
-            "unregistered_group_name": QLineEdit(),
             "output_dir": QLineEdit(),
         }
         self._template_file = FilePicker(existing=True)
@@ -455,9 +472,6 @@ class MainWindow(QMainWindow):
         self._show_strava_links = QCheckBox("Add Strava links")
         self._globals_layout.addRow("Site URL", widgets["site_url"])
         self._globals_layout.addRow("Registration list token", widgets["roster_token"])
-        self._globals_layout.addRow(
-            "Unregistered group", widgets["unregistered_group_name"]
-        )
         self._globals_layout.addRow("Decimals", self._decimals)
         self._globals_layout.addRow("", self._show_strava_links)
         self._globals_layout.addRow("Template file", self._template_file)
@@ -508,7 +522,6 @@ class MainWindow(QMainWindow):
             site_url=self._globals["site_url"].text().strip(),
             strava_cookies=self._strava_cookies,
             roster_token=self._globals["roster_token"].text().strip(),
-            unregistered_group_name=self._globals["unregistered_group_name"].text(),
             decimals=self._decimals.value(),
             show_strava_links=self._show_strava_links.isChecked(),
             log_to_file=self._log_to_file.isChecked(),
@@ -522,7 +535,6 @@ class MainWindow(QMainWindow):
         self._strava_cookies = config.strava_cookies
         self._globals["site_url"].setText(config.site_url)
         self._globals["roster_token"].setText(config.roster_token)
-        self._globals["unregistered_group_name"].setText(config.unregistered_group_name)
         self._decimals.setValue(config.decimals)
         self._show_strava_links.setChecked(config.show_strava_links)
         self._log_to_file.setChecked(config.log_to_file)

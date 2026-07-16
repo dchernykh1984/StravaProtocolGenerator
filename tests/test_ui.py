@@ -163,7 +163,6 @@ def test_two_column_top_keeps_globals_and_cup_fields() -> None:
     config = AppConfig(
         site_url="https://s.test",
         roster_token="rt",
-        unregistered_group_name="Guests",
         template_file="t.html",
         output_dir="out",
         cup=CupConfig(name="Grand Cup", token="cup-token"),
@@ -172,7 +171,6 @@ def test_two_column_top_keeps_globals_and_cup_fields() -> None:
     collected = window.collect_config()
     assert collected.site_url == "https://s.test"
     assert collected.roster_token == "rt"
-    assert collected.unregistered_group_name == "Guests"
     assert collected.template_file == "t.html"
     assert collected.output_dir == "out"
     assert collected.cup.name == "Grand Cup"
@@ -191,6 +189,28 @@ def test_stage_freeze_checkbox_round_trips() -> None:
     tab = mw.StageTab(StageConfig(freeze_strava_data=True))
     assert tab.freeze_strava_data.isChecked()
     assert tab.to_config().freeze_strava_data is True
+
+
+def test_stage_unregistered_group_round_trips() -> None:
+    tab = mw.StageTab(
+        StageConfig(unregistered_group_name="Stage guests", show_unregistered=False)
+    )
+    assert tab.unregistered_group_name.text() == "Stage guests"
+    assert tab.show_unregistered.isChecked() is False
+    config = tab.to_config()
+    assert config.unregistered_group_name == "Stage guests"
+    assert config.show_unregistered is False
+
+
+def test_cup_unregistered_group_round_trips() -> None:
+    panel = mw.CupPanel(
+        CupConfig(unregistered_group_name="Cup guests", show_unregistered=False)
+    )
+    assert panel.unregistered_group_name.text() == "Cup guests"
+    assert panel.show_unregistered.isChecked() is False
+    config = panel.to_config()
+    assert config.unregistered_group_name == "Cup guests"
+    assert config.show_unregistered is False
 
 
 def test_stage_file_fields_are_file_pickers() -> None:

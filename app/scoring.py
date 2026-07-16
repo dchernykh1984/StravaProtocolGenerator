@@ -104,14 +104,14 @@ def _result_url(rows: list[LeaderboardRow | None]) -> str:
 def build_stage_entries(
     segment_matches: list[MatchResult],
     participants: list[Participant],
-    unregistered_group_name: str = "Not registered",
 ) -> list[StageEntry]:
     """Build a stage's entries from its per-segment match results.
 
     Every registered participant appears (even with no time, per the requirement that
     the protocol lists all registered riders). Riders who matched no registration are
-    grouped by Strava athlete id into the ``unregistered_group_name`` group. Each entry
-    carries the rider's profile link and the effort link behind their stage result.
+    marked ``is_registered=False`` (grouped by Strava athlete id); the rendering layer
+    names and, optionally, hides that group per protocol. Each entry carries the rider's
+    profile link and the effort link behind their stage result.
     """
     n = len(segment_matches)
     entries: list[StageEntry] = []
@@ -155,7 +155,7 @@ def build_stage_entries(
                 competitor=Competitor(
                     key=f"s:{aid}",
                     name=names[aid],
-                    group_name=unregistered_group_name,
+                    group_name="",  # named per protocol at render time
                     is_registered=False,
                     athlete_url=matched[0].athlete_url if matched else "",
                 ),

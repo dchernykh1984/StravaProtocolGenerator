@@ -15,7 +15,6 @@ def _rich_config() -> AppConfig:
         site_url="https://site.test",
         strava_cookies=[{"name": "_strava4_session", "value": "abc"}],
         roster_token="roster-tok",
-        unregistered_group_name="Others",
         decimals=1,
         show_strava_links=True,
         log_to_file=True,
@@ -30,10 +29,16 @@ def _rich_config() -> AppConfig:
                 absolute_action=HttpAction.UPLOAD,
                 group_action=HttpAction.DELETE,
                 cup_column_label="D1",
+                unregistered_group_name="Others",
+                show_unregistered=False,
             ),
         ],
         cup=CupConfig(
-            name="Overall", token="cup-tok", absolute_action=HttpAction.UPLOAD
+            name="Overall",
+            token="cup-tok",
+            absolute_action=HttpAction.UPLOAD,
+            unregistered_group_name="Guests",
+            show_unregistered=False,
         ),
     )
 
@@ -68,7 +73,8 @@ def test_redacted_config_blanks_cookies() -> None:
 def test_from_dict_defaults_missing_keys() -> None:
     cfg = AppConfig.from_dict({"site_url": "https://x", "unknown_key": 1})
     assert cfg.site_url == "https://x"
-    assert cfg.unregistered_group_name == "Not registered"
+    assert cfg.stages[0].unregistered_group_name == "Not registered"
+    assert cfg.cup.unregistered_group_name == "Not registered"
     assert len(cfg.stages) == 1
     assert isinstance(cfg.cup, CupConfig)
 

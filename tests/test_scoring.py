@@ -128,10 +128,11 @@ def test_build_stage_entries_missing_segment_is_none() -> None:
 
 def test_build_stage_entries_unregistered_group() -> None:
     match = MatchResult(unregistered=[_row("Random Rider", "999", 250.0)])
-    entries = build_stage_entries([match], [], unregistered_group_name="Others")
+    entries = build_stage_entries([match], [])
     assert len(entries) == 1
     comp = entries[0].competitor
-    assert comp.group_name == "Others"
+    # The group is left blank here and named per protocol at render time.
+    assert comp.group_name == ""
     assert comp.is_registered is False
     assert comp.key == "s:999"
     assert entries[0].value == 250.0

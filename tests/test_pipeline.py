@@ -78,7 +78,6 @@ def _roster() -> ParticipantsResponse:
 def _config() -> AppConfig:
     return AppConfig(
         roster_token="cup-tok",
-        unregistered_group_name="Not registered",
         output_dir="out",
         stages=[
             StageConfig(
@@ -142,6 +141,30 @@ def test_generate_unregistered_rider_goes_to_named_group() -> None:
     stage_grp = next(c for p, c in written.items() if "Day_1_group" in p)
     assert "Not registered" in stage_grp
     assert "Random Rider" in stage_grp
+
+
+def test_stage_and_cup_name_the_unregistered_group_independently() -> None:
+    cfg = _config()
+    cfg.stages[0].unregistered_group_name = "Stage guests"
+    cfg.cup.unregistered_group_name = "Cup guests"
+    browser = _FakeLeaderboard({"seg1": _row("999", "Random Rider", "4:30")})
+    written: dict[str, str] = {}
+    generate(cfg, browser, _FakeClient(_roster()), writer=_capture_writer(written))
+    stage_grp = next(c for p, c in written.items() if "Day_1_group" in p)
+    cup_grp = next(c for p, c in written.items() if "Cup_group" in p)
+    assert "Stage guests" in stage_grp
+    assert "Cup guests" in cup_grp
+
+
+def test_hidden_unregistered_group_drops_unregistered_riders() -> None:
+    cfg = _config()
+    cfg.stages[0].show_unregistered = False
+    cfg.cup.show_unregistered = False
+    browser = _FakeLeaderboard({"seg1": _row("999", "Random Rider", "4:30")})
+    written: dict[str, str] = {}
+    generate(cfg, browser, _FakeClient(_roster()), writer=_capture_writer(written))
+    # The unregistered rider appears in no protocol when hidden.
+    assert "Random Rider" not in "\n".join(written.values())
 
 
 def test_generate_publishes_per_action() -> None:
