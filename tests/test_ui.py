@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import QDate
 from PySide6.QtGui import QCloseEvent, QIcon
-from PySide6.QtWidgets import QApplication, QLineEdit, QMessageBox, QPushButton
+from PySide6.QtWidgets import QApplication, QMessageBox, QPushButton
 
 from app import main_window as mw
 from app.config import AppConfig, CupConfig, StageConfig
@@ -162,7 +162,6 @@ def test_two_column_top_keeps_globals_and_cup_fields() -> None:
     assert isinstance(window._cup, mw.CupPanel)
     config = AppConfig(
         site_url="https://s.test",
-        strava_login="rider",
         roster_token="rt",
         unregistered_group_name="Guests",
         template_file="t.html",
@@ -172,7 +171,6 @@ def test_two_column_top_keeps_globals_and_cup_fields() -> None:
     window.apply_config(config)
     collected = window.collect_config()
     assert collected.site_url == "https://s.test"
-    assert collected.strava_login == "rider"
     assert collected.roster_token == "rt"
     assert collected.unregistered_group_name == "Guests"
     assert collected.template_file == "t.html"
@@ -325,12 +323,6 @@ def test_strava_links_checkbox_round_trips() -> None:
     window.apply_config(AppConfig(show_strava_links=True, cup=CupConfig()))
     assert window._show_strava_links.isChecked()
     assert window.collect_config().show_strava_links is True
-
-
-def test_strava_password_is_shown_as_plain_text() -> None:
-    window = mw.MainWindow()
-    field = window._globals["strava_password"]
-    assert field.echoMode() == QLineEdit.EchoMode.Normal
 
 
 def test_template_field_is_an_open_file_picker() -> None:

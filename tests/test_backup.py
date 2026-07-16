@@ -13,7 +13,8 @@ from app.config import AppConfig
 
 
 def test_save_config_writes_current_and_redacted_version(tmp_path) -> None:
-    cfg = AppConfig(strava_login="me", strava_password="secret", site_url="https://x")
+    cookies = [{"name": "_strava4_session", "value": "secret"}]
+    cfg = AppConfig(strava_cookies=cookies, site_url="https://x")
     data_dir = tmp_path / "data"
     history_dir = tmp_path / "history"
     current, version = save_config(
@@ -21,16 +22,16 @@ def test_save_config_writes_current_and_redacted_version(tmp_path) -> None:
     )
 
     current_data = json.loads(current.read_text(encoding="utf-8"))
-    assert current_data["strava_password"] == "secret"  # current keeps the password
+    assert current_data["strava_cookies"] == cookies  # current keeps the session
 
     version_data = json.loads(version.read_text(encoding="utf-8"))
-    assert version_data["strava_password"] == ""  # history redacts it
-    assert version_data["strava_login"] == "me"
+    assert version_data["strava_cookies"] == []  # history redacts it
+    assert version_data["site_url"] == "https://x"
     assert version.name == "config_20260715_101112.json"
 
 
 def test_load_config_roundtrips_current(tmp_path) -> None:
-    cfg = AppConfig(site_url="https://site", strava_login="rider")
+    cfg = AppConfig(site_url="https://site", roster_token="rider")
     current, _ = save_config(cfg, tmp_path, tmp_path, timestamp="t1")
     assert load_config(current) == cfg
 

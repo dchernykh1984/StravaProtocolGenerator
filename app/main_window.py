@@ -447,8 +447,6 @@ class MainWindow(QMainWindow):
         self._globals_layout = QFormLayout()
         widgets: dict[str, QLineEdit] = {
             "site_url": QLineEdit(),
-            "strava_login": QLineEdit(),
-            "strava_password": QLineEdit(),
             "roster_token": QLineEdit(),
             "unregistered_group_name": QLineEdit(),
             "output_dir": QLineEdit(),
@@ -458,8 +456,6 @@ class MainWindow(QMainWindow):
         self._decimals.setRange(0, 4)
         self._show_strava_links = QCheckBox("Add Strava links")
         self._globals_layout.addRow("Site URL", widgets["site_url"])
-        self._globals_layout.addRow("Strava login", widgets["strava_login"])
-        self._globals_layout.addRow("Strava password", widgets["strava_password"])
         self._globals_layout.addRow("Registration list token", widgets["roster_token"])
         self._globals_layout.addRow(
             "Unregistered group", widgets["unregistered_group_name"]
@@ -512,8 +508,6 @@ class MainWindow(QMainWindow):
         stages = [self._tabs.widget(i).to_config() for i in range(self._tabs.count())]
         return AppConfig(
             site_url=self._globals["site_url"].text().strip(),
-            strava_login=self._globals["strava_login"].text().strip(),
-            strava_password=self._globals["strava_password"].text(),
             strava_cookies=self._strava_cookies,
             roster_token=self._globals["roster_token"].text().strip(),
             unregistered_group_name=self._globals["unregistered_group_name"].text(),
@@ -529,8 +523,6 @@ class MainWindow(QMainWindow):
     def apply_config(self, config: AppConfig) -> None:
         self._strava_cookies = config.strava_cookies
         self._globals["site_url"].setText(config.site_url)
-        self._globals["strava_login"].setText(config.strava_login)
-        self._globals["strava_password"].setText(config.strava_password)
         self._globals["roster_token"].setText(config.roster_token)
         self._globals["unregistered_group_name"].setText(config.unregistered_group_name)
         self._decimals.setValue(config.decimals)
