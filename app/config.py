@@ -23,6 +23,38 @@ class HttpAction(StrEnum):
     DELETE = "Delete"
 
 
+class DateRange(StrEnum):
+    """Strava's server-side leaderboard window preset (its ``date_range`` param).
+
+    This is essential, not cosmetic: on a popular segment the all-time board returns
+    each rider's best-ever effort, so a rider who rode today but was faster before never
+    appears with today's time. Asking Strava for ``today`` (or the week/month/year)
+    returns the efforts from that window instead. ``ALL_TIME`` omits the param.
+    """
+
+    TODAY = "today"
+    THIS_WEEK = "this_week"
+    THIS_MONTH = "this_month"
+    THIS_YEAR = "this_year"
+    ALL_TIME = "all_time"
+
+
+class Gender(StrEnum):
+    """Strava's leaderboard ``gender`` filter (``overall`` combines everyone)."""
+
+    OVERALL = "overall"
+    MEN = "M"
+    WOMEN = "F"
+
+
+class FilterType(StrEnum):
+    """Strava's leaderboard ``filter_type`` (``all`` is the public overall board)."""
+
+    ALL = "all"
+    FOLLOWING = "following"
+    MY_RESULTS = "my_results"
+
+
 def _coerce_action(value: Any) -> HttpAction:
     try:
         return HttpAction(value)
@@ -30,18 +62,45 @@ def _coerce_action(value: Any) -> HttpAction:
         return HttpAction.NOTHING
 
 
+def _coerce_enum(enum: type[Any], value: Any, default: Any) -> Any:
+    try:
+        return enum(value)
+    except ValueError:
+        return default
+
+
 @dataclass
 class SegmentConfig:
-    """One Strava segment scraped for a stage (identified by its numeric id)."""
+    """One Strava segment scraped for a stage: its id and leaderboard filters.
+
+    The filters map straight onto Strava's ``date_range`` / ``gender`` / ``filter_type``
+    leaderboard query params, so each segment is scraped with the window and cohort the
+    stage needs (usually ``today`` on the overall board for a race-day protocol).
+    """
 
     segment_id: str = ""
+    date_range: DateRange = DateRange.TODAY
+    gender: Gender = Gender.OVERALL
+    filter_type: FilterType = FilterType.ALL
 
     def to_dict(self) -> dict[str, Any]:
-        return {"segment_id": self.segment_id}
+        return {
+            "segment_id": self.segment_id,
+            "date_range": self.date_range.value,
+            "gender": self.gender.value,
+            "filter_type": self.filter_type.value,
+        }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SegmentConfig:
-        return cls(segment_id=str(data.get("segment_id", "")))
+        return cls(
+            segment_id=str(data.get("segment_id", "")),
+            date_range=_coerce_enum(DateRange, data.get("date_range"), DateRange.TODAY),
+            gender=_coerce_enum(Gender, data.get("gender"), Gender.OVERALL),
+            filter_type=_coerce_enum(
+                FilterType, data.get("filter_type"), FilterType.ALL
+            ),
+        )
 
 
 @dataclass

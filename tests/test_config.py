@@ -3,6 +3,9 @@
 from app.config import (
     AppConfig,
     CupConfig,
+    DateRange,
+    FilterType,
+    Gender,
     HttpAction,
     SegmentConfig,
     StageConfig,
@@ -23,7 +26,14 @@ def _rich_config() -> AppConfig:
         stages=[
             StageConfig(
                 name="Day 1",
-                segments=[SegmentConfig("111")],
+                segments=[
+                    SegmentConfig(
+                        "111",
+                        date_range=DateRange.THIS_WEEK,
+                        gender=Gender.MEN,
+                        filter_type=FilterType.FOLLOWING,
+                    )
+                ],
                 token="stage1-tok",
                 freeze_strava_data=True,
                 absolute_action=HttpAction.UPLOAD,
@@ -82,6 +92,40 @@ def test_from_dict_defaults_missing_keys() -> None:
 def test_bad_http_action_falls_back_to_nothing() -> None:
     stage = StageConfig.from_dict({"absolute_action": "Garbage"})
     assert stage.absolute_action is HttpAction.NOTHING
+
+
+def test_bad_segment_filters_fall_back_to_defaults() -> None:
+    seg = SegmentConfig.from_dict(
+        {
+            "segment_id": "5",
+            "date_range": "since_the_dawn_of_time",
+            "gender": "aliens",
+            "filter_type": "psychic",
+        }
+    )
+    assert seg.date_range is DateRange.TODAY
+    assert seg.gender is Gender.OVERALL
+    assert seg.filter_type is FilterType.ALL
+
+
+def test_segment_defaults_to_today_overall_all() -> None:
+    seg = SegmentConfig()
+    assert (seg.date_range, seg.gender, seg.filter_type) == (
+        DateRange.TODAY,
+        Gender.OVERALL,
+        FilterType.ALL,
+    )
+    assert SegmentConfig.from_dict({"segment_id": "5"}).date_range is DateRange.TODAY
+
+
+def test_segment_filters_roundtrip() -> None:
+    seg = SegmentConfig(
+        "5",
+        date_range=DateRange.THIS_YEAR,
+        gender=Gender.WOMEN,
+        filter_type=FilterType.MY_RESULTS,
+    )
+    assert SegmentConfig.from_dict(seg.to_dict()) == seg
 
 
 def test_stage_column_label_falls_back_to_name() -> None:
