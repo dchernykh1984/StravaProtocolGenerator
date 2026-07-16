@@ -24,7 +24,7 @@ def _rich_config() -> AppConfig:
         stages=[
             StageConfig(
                 name="Day 1",
-                segments=[SegmentConfig("111", {"filter": "club"})],
+                segments=[SegmentConfig("111")],
                 token="stage1-tok",
                 freeze_strava_data=True,
                 absolute_action=HttpAction.UPLOAD,

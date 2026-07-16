@@ -32,20 +32,16 @@ def _coerce_action(value: Any) -> HttpAction:
 
 @dataclass
 class SegmentConfig:
-    """One Strava segment scraped for a stage, with optional leaderboard filters."""
+    """One Strava segment scraped for a stage (identified by its numeric id)."""
 
     segment_id: str = ""
-    filters: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"segment_id": self.segment_id, "filters": dict(self.filters)}
+        return {"segment_id": self.segment_id}
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SegmentConfig:
-        return cls(
-            segment_id=data.get("segment_id", ""),
-            filters=dict(data.get("filters", {})),
-        )
+        return cls(segment_id=str(data.get("segment_id", "")))
 
 
 @dataclass
