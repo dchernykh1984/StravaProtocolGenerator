@@ -281,6 +281,18 @@ def test_cup_registration_columns_round_trip() -> None:
     assert config.show_city is False
 
 
+def test_stage_disable_dnf_round_trips() -> None:
+    tab = mw.StageTab(StageConfig(disable_dnf=True))
+    assert tab.disable_dnf.isChecked() is True
+    assert tab.to_config().disable_dnf is True
+
+
+def test_cup_disable_dnf_round_trips() -> None:
+    panel = mw.CupPanel(CupConfig(disable_dnf=True))
+    assert panel.disable_dnf.isChecked() is True
+    assert panel.to_config().disable_dnf is True
+
+
 def test_stage_gap_round_trips() -> None:
     tab = mw.StageTab(StageConfig(show_gap=False, gap_label="(diff)"))
     assert tab.show_gap.isChecked() is False

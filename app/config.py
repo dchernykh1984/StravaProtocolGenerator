@@ -133,6 +133,7 @@ class StageConfig:
     result_label: str = "Result"
     show_place: bool = True
     show_name: bool = True
+    disable_dnf: bool = False
     show_year: bool = True
     year_label: str = "Year of birth"
     show_team: bool = True
@@ -240,6 +241,7 @@ class CupConfig:
     total_label: str = "Total"
     show_place: bool = True
     show_name: bool = True
+    disable_dnf: bool = False
     show_year: bool = True
     year_label: str = "Year of birth"
     show_team: bool = True
@@ -272,6 +274,7 @@ class CupConfig:
             "total_label": self.total_label,
             "show_place": self.show_place,
             "show_name": self.show_name,
+            "disable_dnf": self.disable_dnf,
             "show_year": self.show_year,
             "year_label": self.year_label,
             "show_team": self.show_team,
@@ -308,6 +311,7 @@ class CupConfig:
             total_label=d("total_label"),
             show_place=d("show_place"),
             show_name=d("show_name"),
+            disable_dnf=d("disable_dnf"),
             show_year=d("show_year"),
             year_label=d("year_label"),
             show_team=d("show_team"),

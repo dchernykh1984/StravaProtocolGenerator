@@ -86,12 +86,23 @@ def _form_layout(parent: QWidget | None = None) -> QFormLayout:
     return form
 
 
-def _field_with_checkbox(field: QWidget, checkbox: QCheckBox) -> QHBoxLayout:
-    """Pack a field and a trailing checkbox onto one form row to save height."""
+def _field_with_checkbox(field: QWidget, *checkboxes: QCheckBox) -> QHBoxLayout:
+    """Pack a field and one or more trailing checkboxes onto one form row."""
     row = QHBoxLayout()
     row.setContentsMargins(0, 0, 0, 0)
     row.addWidget(field, stretch=1)
-    row.addWidget(checkbox)
+    for checkbox in checkboxes:
+        row.addWidget(checkbox)
+    return row
+
+
+def _checkbox_row(*checkboxes: QCheckBox) -> QHBoxLayout:
+    """Put several checkboxes on one left-aligned form row."""
+    row = QHBoxLayout()
+    row.setContentsMargins(0, 0, 0, 0)
+    for checkbox in checkboxes:
+        row.addWidget(checkbox)
+    row.addStretch(1)
     return row
 
 
@@ -374,6 +385,8 @@ class StageTab(QWidget):
         self.result_label = QLineEdit(stage.result_label)
         self.show_place = QCheckBox("Show place")
         self.show_place.setChecked(stage.show_place)
+        self.disable_dnf = QCheckBox("Disable DNF")
+        self.disable_dnf.setChecked(stage.disable_dnf)
         self.show_name = QCheckBox("Show name")
         self.show_name.setChecked(stage.show_name)
         self.year_label = QLineEdit(stage.year_label)
@@ -407,8 +420,7 @@ class StageTab(QWidget):
         self._form.addRow("Date from (including)", self.date_from)
         self._form.addRow("Date to (including)", self.date_to)
         self._form.addRow("Broadcast token (to Site URL)", self.token)
-        self._form.addRow("", self.is_live)
-        self._form.addRow("", self.freeze_strava_data)
+        self._form.addRow("", _checkbox_row(self.is_live, self.freeze_strava_data))
         self._form.addRow("Stage label", self.stage_label)
         self._form.addRow("Absolute protocol", self.absolute_action)
         self._form.addRow("Group protocol", self.group_action)
@@ -416,7 +428,8 @@ class StageTab(QWidget):
         self._form.addRow("Group file", self.group_file)
         self._form.addRow("Cup column label", self.cup_column_label)
         self._form.addRow(
-            "Place label", _field_with_checkbox(self.place_label, self.show_place)
+            "Place label",
+            _field_with_checkbox(self.place_label, self.show_place, self.disable_dnf),
         )
         self._form.addRow(
             "Name label", _field_with_checkbox(self.name_label, self.show_name)
@@ -473,6 +486,7 @@ class StageTab(QWidget):
             gap_label=self.gap_label.text(),
             show_place=self.show_place.isChecked(),
             show_name=self.show_name.isChecked(),
+            disable_dnf=self.disable_dnf.isChecked(),
             unregistered_group_name=self.unregistered_group_name.text(),
             show_unregistered=self.show_unregistered.isChecked(),
             race_info=self.race_info.to_config(),
@@ -502,6 +516,8 @@ class CupPanel(QWidget):
         self.total_label = QLineEdit(cup.total_label)
         self.show_place = QCheckBox("Show place")
         self.show_place.setChecked(cup.show_place)
+        self.disable_dnf = QCheckBox("Disable DNF")
+        self.disable_dnf.setChecked(cup.disable_dnf)
         self.show_name = QCheckBox("Show name")
         self.show_name.setChecked(cup.show_name)
         self.year_label = QLineEdit(cup.year_label)
@@ -535,7 +551,8 @@ class CupPanel(QWidget):
         form.addRow("Absolute file", self.absolute_file)
         form.addRow("Group file", self.group_file)
         form.addRow(
-            "Place label", _field_with_checkbox(self.place_label, self.show_place)
+            "Place label",
+            _field_with_checkbox(self.place_label, self.show_place, self.disable_dnf),
         )
         form.addRow("Name label", _field_with_checkbox(self.name_label, self.show_name))
         form.addRow("Year label", _field_with_checkbox(self.year_label, self.show_year))
@@ -577,6 +594,7 @@ class CupPanel(QWidget):
             total_label=self.total_label.text(),
             show_place=self.show_place.isChecked(),
             show_name=self.show_name.isChecked(),
+            disable_dnf=self.disable_dnf.isChecked(),
             show_year=self.show_year.isChecked(),
             year_label=self.year_label.text(),
             show_team=self.show_team.isChecked(),
