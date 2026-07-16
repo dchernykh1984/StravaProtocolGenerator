@@ -67,6 +67,8 @@ class StageConfig:
     result_label: str = "Result"
     show_place: bool = True
     show_name: bool = True
+    unregistered_group_name: str = "Not registered"
+    show_unregistered: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -89,6 +91,8 @@ class StageConfig:
             "result_label": self.result_label,
             "show_place": self.show_place,
             "show_name": self.show_name,
+            "unregistered_group_name": self.unregistered_group_name,
+            "show_unregistered": self.show_unregistered,
         }
 
     @classmethod
@@ -115,6 +119,8 @@ class StageConfig:
             result_label=d("result_label"),
             show_place=d("show_place"),
             show_name=d("show_name"),
+            unregistered_group_name=d("unregistered_group_name"),
+            show_unregistered=d("show_unregistered"),
         )
 
     def column_label(self) -> str:
@@ -140,6 +146,8 @@ class CupConfig:
     total_label: str = "Total"
     show_place: bool = True
     show_name: bool = True
+    unregistered_group_name: str = "Not registered"
+    show_unregistered: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -157,6 +165,8 @@ class CupConfig:
             "total_label": self.total_label,
             "show_place": self.show_place,
             "show_name": self.show_name,
+            "unregistered_group_name": self.unregistered_group_name,
+            "show_unregistered": self.show_unregistered,
         }
 
     @classmethod
@@ -177,6 +187,8 @@ class CupConfig:
             total_label=d("total_label"),
             show_place=d("show_place"),
             show_name=d("show_name"),
+            unregistered_group_name=d("unregistered_group_name"),
+            show_unregistered=d("show_unregistered"),
         )
 
 
@@ -187,7 +199,6 @@ class AppConfig:
     site_url: str = ""
     strava_cookies: list[dict[str, Any]] = field(default_factory=list)
     roster_token: str = ""
-    unregistered_group_name: str = "Not registered"
     decimals: int = 0
     show_strava_links: bool = False
     log_to_file: bool = False
@@ -205,7 +216,6 @@ class AppConfig:
             "site_url": self.site_url,
             "strava_cookies": self.strava_cookies if include_secrets else [],
             "roster_token": self.roster_token,
-            "unregistered_group_name": self.unregistered_group_name,
             "decimals": self.decimals,
             "show_strava_links": self.show_strava_links,
             "log_to_file": self.log_to_file,
@@ -224,7 +234,6 @@ class AppConfig:
             site_url=d("site_url"),
             strava_cookies=list(data.get("strava_cookies", [])),
             roster_token=d("roster_token"),
-            unregistered_group_name=d("unregistered_group_name"),
             decimals=d("decimals"),
             show_strava_links=d("show_strava_links"),
             log_to_file=d("log_to_file"),
