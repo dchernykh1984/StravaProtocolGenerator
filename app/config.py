@@ -189,8 +189,6 @@ class AppConfig:
     """The whole configuration: credentials, global options, stages, and the cup."""
 
     site_url: str = ""
-    strava_login: str = ""
-    strava_password: str = ""
     strava_cookies: list[dict[str, Any]] = field(default_factory=list)
     roster_token: str = ""
     unregistered_group_name: str = "Not registered"
@@ -209,8 +207,6 @@ class AppConfig:
     def to_dict(self, include_secrets: bool = True) -> dict[str, Any]:
         return {
             "site_url": self.site_url,
-            "strava_login": self.strava_login,
-            "strava_password": self.strava_password if include_secrets else "",
             "strava_cookies": self.strava_cookies if include_secrets else [],
             "roster_token": self.roster_token,
             "unregistered_group_name": self.unregistered_group_name,
@@ -230,8 +226,6 @@ class AppConfig:
         cup = CupConfig.from_dict(data["cup"]) if "cup" in data else CupConfig()
         return cls(
             site_url=d("site_url"),
-            strava_login=d("strava_login"),
-            strava_password=d("strava_password"),
             strava_cookies=list(data.get("strava_cookies", [])),
             roster_token=d("roster_token"),
             unregistered_group_name=d("unregistered_group_name"),
