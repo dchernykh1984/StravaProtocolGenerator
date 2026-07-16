@@ -376,6 +376,15 @@ class StageTab(QWidget):
         self.show_place.setChecked(stage.show_place)
         self.show_name = QCheckBox("Show name")
         self.show_name.setChecked(stage.show_name)
+        self.year_label = QLineEdit(stage.year_label)
+        self.show_year = QCheckBox("Show")
+        self.show_year.setChecked(stage.show_year)
+        self.team_label = QLineEdit(stage.team_label)
+        self.show_team = QCheckBox("Show")
+        self.show_team.setChecked(stage.show_team)
+        self.city_label = QLineEdit(stage.city_label)
+        self.show_city = QCheckBox("Show")
+        self.show_city.setChecked(stage.show_city)
         self.gap_label = QLineEdit(stage.gap_label)
         self.show_gap = QCheckBox("Show")
         self.show_gap.setChecked(stage.show_gap)
@@ -408,6 +417,15 @@ class StageTab(QWidget):
         self._form.addRow("Cup column label", self.cup_column_label)
         self._form.addRow("Place label", self.place_label)
         self._form.addRow("Name label", self.name_label)
+        self._form.addRow(
+            "Year label", _field_with_checkbox(self.year_label, self.show_year)
+        )
+        self._form.addRow(
+            "Team label", _field_with_checkbox(self.team_label, self.show_team)
+        )
+        self._form.addRow(
+            "City label", _field_with_checkbox(self.city_label, self.show_city)
+        )
         self._form.addRow("Result label", self.result_label)
         self._form.addRow(
             "Gap label", _field_with_checkbox(self.gap_label, self.show_gap)
@@ -443,6 +461,12 @@ class StageTab(QWidget):
             place_label=self.place_label.text(),
             name_label=self.name_label.text(),
             result_label=self.result_label.text(),
+            show_year=self.show_year.isChecked(),
+            year_label=self.year_label.text(),
+            show_team=self.show_team.isChecked(),
+            team_label=self.team_label.text(),
+            show_city=self.show_city.isChecked(),
+            city_label=self.city_label.text(),
             show_gap=self.show_gap.isChecked(),
             gap_label=self.gap_label.text(),
             show_place=self.show_place.isChecked(),
@@ -478,6 +502,15 @@ class CupPanel(QWidget):
         self.show_place.setChecked(cup.show_place)
         self.show_name = QCheckBox("Show name")
         self.show_name.setChecked(cup.show_name)
+        self.year_label = QLineEdit(cup.year_label)
+        self.show_year = QCheckBox("Show")
+        self.show_year.setChecked(cup.show_year)
+        self.team_label = QLineEdit(cup.team_label)
+        self.show_team = QCheckBox("Show")
+        self.show_team.setChecked(cup.show_team)
+        self.city_label = QLineEdit(cup.city_label)
+        self.show_city = QCheckBox("Show")
+        self.show_city.setChecked(cup.show_city)
         self.gap_label = QLineEdit(cup.gap_label)
         self.show_gap = QCheckBox("Show")
         self.show_gap.setChecked(cup.show_gap)
@@ -503,6 +536,9 @@ class CupPanel(QWidget):
             "Place label", _field_with_checkbox(self.place_label, self.show_place)
         )
         form.addRow("Name label", _field_with_checkbox(self.name_label, self.show_name))
+        form.addRow("Year label", _field_with_checkbox(self.year_label, self.show_year))
+        form.addRow("Team label", _field_with_checkbox(self.team_label, self.show_team))
+        form.addRow("City label", _field_with_checkbox(self.city_label, self.show_city))
         form.addRow("Total label", self.total_label)
         form.addRow(
             "Total gap label", _field_with_checkbox(self.gap_label, self.show_gap)
@@ -539,6 +575,12 @@ class CupPanel(QWidget):
             total_label=self.total_label.text(),
             show_place=self.show_place.isChecked(),
             show_name=self.show_name.isChecked(),
+            show_year=self.show_year.isChecked(),
+            year_label=self.year_label.text(),
+            show_team=self.show_team.isChecked(),
+            team_label=self.team_label.text(),
+            show_city=self.show_city.isChecked(),
+            city_label=self.city_label.text(),
             show_gap=self.show_gap.isChecked(),
             gap_label=self.gap_label.text(),
             show_stage_gap=self.show_stage_gap.isChecked(),

@@ -36,13 +36,20 @@ class CupRule(StrEnum):
 
 @dataclass(frozen=True)
 class Competitor:
-    """Stable identity of a competitor across segments and stages."""
+    """Stable identity of a competitor across segments and stages.
+
+    ``birth_year``/``team``/``city`` come from the registration and are empty for a
+    rider who only appears on the Strava board (the site has no record of them).
+    """
 
     key: str
     name: str
     group_name: str
     is_registered: bool
     athlete_url: str = ""
+    birth_year: int = 0
+    team: str = ""
+    city: str = ""
 
 
 @dataclass
@@ -128,6 +135,9 @@ def build_stage_entries(
                     group_name=participant.category_name,
                     is_registered=True,
                     athlete_url=_athlete_url(participant, matched),
+                    birth_year=participant.birth_year,
+                    team=participant.team,
+                    city=participant.city,
                 ),
                 segment_values=seg_values,
                 value=combine_times(seg_values),

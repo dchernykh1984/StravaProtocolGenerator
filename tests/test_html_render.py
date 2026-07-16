@@ -170,6 +170,63 @@ def test_render_uses_custom_styles() -> None:
     assert "<style>\nbody{}\n</style>" in html
 
 
+def test_stage_protocol_shows_year_team_city_when_enabled() -> None:
+    reg = StageEntry(
+        Competitor(
+            "p:1", "Ivan", "A", True, birth_year=1984, team="UBT", city="Almaty"
+        ),
+        [300.0],
+        300.0,
+    )
+    guest = StageEntry(Competitor("s:9", "Guest", "A", False), [280.0], 280.0)
+    html = render_stage_protocol(
+        "S",
+        [("A", [Ranked(1, guest), Ranked(2, reg)])],
+        columns=StageColumns(
+            show_year=True,
+            year_label="Year",
+            show_team=True,
+            team_label="Team",
+            show_city=True,
+            city_label="City",
+        ),
+    )
+    for header in ("<B>Year</B>", "<B>Team</B>", "<B>City</B>"):
+        assert header in html
+    assert "1984" in html and "UBT" in html and "Almaty" in html
+    # The unregistered guest has blank registration cells (three empty cells in a row).
+    assert "<td ALIGN=center></td><td ALIGN=center></td><td ALIGN=center></td>" in html
+
+
+def test_stage_protocol_hides_registration_columns_by_default() -> None:
+    reg = StageEntry(
+        Competitor(
+            "p:1", "Ivan", "A", True, birth_year=1984, team="UBT", city="Almaty"
+        ),
+        [300.0],
+        300.0,
+    )
+    html = render_stage_protocol("S", [("A", [Ranked(1, reg)])])
+    assert "1984" not in html and "UBT" not in html
+
+
+def test_cup_protocol_shows_registration_columns() -> None:
+    entry = CupEntry(
+        Competitor(
+            "p:1", "Ivan", "A", True, birth_year=1990, team="ART", city="Astana"
+        ),
+        [300.0, 200.0],
+        500.0,
+    )
+    html = render_cup_protocol(
+        "Cup",
+        [("A", [Ranked(1, entry)])],
+        ["D1", "D2"],
+        columns=CupColumns(show_year=True, show_team=True, show_city=True),
+    )
+    assert "1990" in html and "ART" in html and "Astana" in html
+
+
 def test_gap_text_covers_leader_slower_and_missing() -> None:
     assert _gap_text(300.0, 300.0, 0) == "(0:00)"  # leader shows a zero gap
     assert _gap_text(500.0, 300.0, 0) == "(+3:20)"  # slower than the leader

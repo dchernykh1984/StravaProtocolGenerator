@@ -253,6 +253,34 @@ def test_cup_unregistered_group_round_trips() -> None:
     assert config.show_unregistered is False
 
 
+def test_stage_registration_columns_round_trip() -> None:
+    tab = mw.StageTab(
+        StageConfig(
+            show_year=False,
+            year_label="YOB",
+            show_team=False,
+            team_label="Club",
+            show_city=False,
+            city_label="Town",
+        )
+    )
+    config = tab.to_config()
+    assert (config.show_year, config.year_label) == (False, "YOB")
+    assert (config.show_team, config.team_label) == (False, "Club")
+    assert (config.show_city, config.city_label) == (False, "Town")
+
+
+def test_cup_registration_columns_round_trip() -> None:
+    panel = mw.CupPanel(
+        CupConfig(show_year=False, show_team=False, show_city=False, team_label="Club")
+    )
+    config = panel.to_config()
+    assert config.show_year is False
+    assert config.show_team is False
+    assert config.team_label == "Club"
+    assert config.show_city is False
+
+
 def test_stage_gap_round_trips() -> None:
     tab = mw.StageTab(StageConfig(show_gap=False, gap_label="(diff)"))
     assert tab.show_gap.isChecked() is False
