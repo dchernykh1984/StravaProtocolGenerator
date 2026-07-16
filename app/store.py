@@ -50,8 +50,13 @@ class SegmentStore:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> SegmentStore:
-        rows = [LeaderboardRow.from_dict(r) for r in (data or {}).get("rows", [])]
-        return cls(rows=rows)
+        # Tolerate a corrupt or partially written store (null/wrong-typed rows) rather
+        # than crashing a whole generation, like the config loaders do.
+        raw = (data or {}).get("rows")
+        rows = raw if isinstance(raw, list) else []
+        return cls(
+            rows=[LeaderboardRow.from_dict(r) for r in rows if isinstance(r, dict)]
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {"rows": [row.to_dict() for row in self.rows]}

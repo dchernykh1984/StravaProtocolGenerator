@@ -94,3 +94,13 @@ def test_roundtrips_through_dict() -> None:
     restored = SegmentStore.from_dict(store.to_dict())
     assert restored == store
     assert SegmentStore.from_dict(None).rows == []
+
+
+def test_from_dict_tolerates_a_corrupt_store() -> None:
+    # A partial write or hand-edit must load to an empty store, not crash.
+    assert SegmentStore.from_dict({"rows": None}).rows == []
+    assert SegmentStore.from_dict({"rows": 5}).rows == []
+    assert SegmentStore.from_dict({}).rows == []
+    # Garbage entries within the list are skipped, valid ones kept.
+    store = SegmentStore.from_dict({"rows": [None, _row("1", 300.0, 15).to_dict()]})
+    assert [r.athlete_id for r in store.rows] == ["1"]
