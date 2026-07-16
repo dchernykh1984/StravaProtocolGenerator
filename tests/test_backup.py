@@ -3,13 +3,18 @@
 import json
 
 from app.backup import (
+    archive_segment,
     list_snapshots,
     load_config,
     load_raw_data,
+    load_segment_store,
     save_config,
     save_raw_data,
+    save_segment_store,
 )
 from app.config import AppConfig
+from app.models import LeaderboardRow
+from app.store import SegmentStore
 
 
 def test_save_config_writes_current_and_redacted_version(tmp_path) -> None:
@@ -84,3 +89,43 @@ def test_save_config_default_timestamp(tmp_path) -> None:
     _, version = save_config(AppConfig(), tmp_path, tmp_path)
     assert version.exists()
     assert version.name.startswith("config_")
+
+
+def _row(aid: str, seconds: float) -> LeaderboardRow:
+    return LeaderboardRow(
+        athlete_name=f"Rider {aid}",
+        athlete_id=aid,
+        raw_result="",
+        result_seconds=seconds,
+        date="2026-07-15T08:00:00Z",
+        attempt_url=f"https://www.strava.com/activities/{aid}",
+    )
+
+
+def test_segment_store_round_trips_on_disk(tmp_path) -> None:
+    store = SegmentStore()
+    store.merge([_row("1", 300.0), _row("2", 320.0)])
+    path = save_segment_store(tmp_path, "41792182", store)
+    assert path.parent.name == "segments"
+    assert load_segment_store(tmp_path, "41792182") == store
+
+
+def test_load_segment_store_missing_is_empty(tmp_path) -> None:
+    assert load_segment_store(tmp_path, "999").rows == []
+
+
+def test_archive_segment_writes_a_tree_by_segment_id(tmp_path) -> None:
+    path = archive_segment(
+        tmp_path, "41792182", [_row("1", 300.0)], timestamp="20260715_101112"
+    )
+    assert path.name == "20260715_101112.json"
+    assert path.parent.name == "41792182"
+    assert path.parent.parent.name == "segments"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert data["rows"][0]["athlete_id"] == "1"
+
+
+def test_unsafe_segment_id_is_sanitised(tmp_path) -> None:
+    path = save_segment_store(tmp_path, "../evil id", SegmentStore())
+    assert path.name == "_evil_id.json"  # unsafe runs collapse to one underscore
+    assert path.parent == tmp_path / "segments"
