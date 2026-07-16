@@ -15,7 +15,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Protocol
 
-from app.config import AppConfig, CupConfig, HttpAction, StageConfig
+from app.config import AppConfig, CupConfig, HttpAction, SegmentConfig, StageConfig
 from app.html_render import (
     CupColumns,
     HtmlStyles,
@@ -34,8 +34,10 @@ from app.scoring import (
     build_stage_entries,
     rank_entries,
 )
-from app.scraper import Leaderboard, scrape_segment
+from app.scraper import Leaderboard, scrape_windows
 from app.site_api import ParticipantsResponse, SiteApiError
+from app.store import SegmentStore
+from app.windows import presets_for_segment
 
 Writer = Callable[[str, str], None]
 
@@ -55,6 +57,31 @@ class SiteClient(Protocol):
     ) -> None: ...
 
     def delete_protocol(self, token: str, protocol_type: str) -> None: ...
+
+
+class SegmentStorage(Protocol):
+    """Persists each segment's accumulating store (the filesystem impl is in backup)."""
+
+    def load(self, segment_id: str) -> SegmentStore: ...
+
+    def commit(
+        self, segment_id: str, store: SegmentStore, scraped: list[LeaderboardRow]
+    ) -> None: ...
+
+
+class _MemoryStorage:
+    """A non-persistent storage, used when ``generate`` is called without one."""
+
+    def __init__(self) -> None:
+        self._stores: dict[str, SegmentStore] = {}
+
+    def load(self, segment_id: str) -> SegmentStore:
+        return self._stores.get(segment_id) or SegmentStore()
+
+    def commit(
+        self, segment_id: str, store: SegmentStore, scraped: list[LeaderboardRow]
+    ) -> None:
+        self._stores[segment_id] = store
 
 
 def _default_writer(path: str, content: str) -> None:
@@ -409,26 +436,41 @@ def _snapshot(
     }
 
 
-def _stage_rows(
+def _segment_rows(
+    segment: SegmentConfig,
     stage: StageConfig,
-    index: int,
-    previous_stages: list[Any],
     leaderboard: Leaderboard,
-) -> list[list[LeaderboardRow]]:
-    """Scrape a stage, or reuse its rows from ``previous_stages`` when frozen.
+    storage: SegmentStorage,
+    today: date,
+) -> list[LeaderboardRow]:
+    """Scrape a segment's due windows into its store, then read the best in the range.
 
-    A frozen stage keeps the Strava data captured earlier (so a later day's scrape does
-    not overwrite it), but only if that data exists -- otherwise it scrapes as usual.
+    A frozen stage does not scrape at all -- it just reads whatever the store already
+    holds -- so a later day's run cannot overwrite captured results. Otherwise the
+    windows chosen by ``app.windows`` are scraped, merged into the store (deduplicated),
+    archived, and the store then yields each athlete's fastest effort within the window.
     """
-    if stage.freeze_strava_data and index < len(previous_stages):
-        return [
-            [LeaderboardRow.from_dict(row) for row in segment]
-            for segment in previous_stages[index]
-        ]
     date_from = _parse_iso_date(stage.date_from)
     date_to = _parse_iso_date(stage.date_to)
+    store = storage.load(segment.segment_id)
+    if not stage.freeze_strava_data:
+        presets = presets_for_segment(segment, date_from, date_to, today)
+        if presets:
+            scraped = scrape_windows(leaderboard, segment, presets)
+            store.merge(scraped)
+            storage.commit(segment.segment_id, store, scraped)
+    return store.best_in_range(date_from, date_to, today)
+
+
+def _stage_rows(
+    stage: StageConfig,
+    leaderboard: Leaderboard,
+    storage: SegmentStorage,
+    today: date,
+) -> list[list[LeaderboardRow]]:
+    """The best-in-range rows for each of a stage's segments."""
     return [
-        scrape_segment(leaderboard, segment, date_from, date_to)
+        _segment_rows(segment, stage, leaderboard, storage, today)
         for segment in stage.segments
     ]
 
@@ -439,13 +481,15 @@ def generate(
     client: SiteClient,
     writer: Writer = _default_writer,
     publish: bool = True,
-    previous: dict[str, Any] | None = None,
+    storage: SegmentStorage | None = None,
+    today: date | None = None,
 ) -> GenerationResult:
     """Run a live generation: roster, scrape stages, render, publish, and snapshot.
 
     The roster is always fetched fresh, so late registrations (and riders who never
-    registered but rode) still surface; ``previous`` supplies the last snapshot whose
-    rows frozen stages reuse instead of re-scraping.
+    registered but rode) still surface. Each segment's efforts accumulate in ``storage``
+    (see ``app.store``), so results captured earlier survive Strava collapsing its
+    leaderboard; without a ``storage`` the run is stateless (nothing persists).
     """
     result = GenerationResult()
     participants: list[Participant] = []
@@ -457,10 +501,10 @@ def generate(
     except SiteApiError as exc:
         result.errors.append(f"roster fetch failed: {exc}")
 
-    previous_stages = (previous or {}).get("stages", [])
+    storage = storage or _MemoryStorage()
+    when = today or date.today()
     stages_rows: list[list[list[LeaderboardRow]]] = [
-        _stage_rows(stage, i, previous_stages, leaderboard)
-        for i, stage in enumerate(config.stages)
+        _stage_rows(stage, leaderboard, storage, when) for stage in config.stages
     ]
 
     result.outputs = _render_all(

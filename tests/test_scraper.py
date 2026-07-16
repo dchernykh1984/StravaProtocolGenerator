@@ -1,10 +1,8 @@
 """Tests for the leaderboard pagination scraper, driven by a fake leaderboard source."""
 
-from datetime import date
-
-from app.config import SegmentConfig
+from app.config import DateRange, FilterType, Gender, SegmentConfig
 from app.models import LeaderboardRow
-from app.scraper import collect_pages, scrape_segment
+from app.scraper import collect_pages, scrape_windows
 
 
 def _row(aid: int, day: int = 5, seconds: float = 300.0) -> LeaderboardRow:
@@ -74,26 +72,23 @@ def test_collect_pages_caps_runaway_pagination() -> None:
     assert len(collect_pages(_Endless(), "seg")) == 50  # _MAX_PAGES
 
 
-def test_scrape_segment_filters_dates() -> None:
-    board = _FakeLeaderboard([[_row(1, day=5), _row(2, day=9)]])
-    rows = scrape_segment(
-        board,
-        SegmentConfig("41792375"),
-        date_from=date(2025, 8, 5),
-        date_to=date(2025, 8, 5),
-    )
-    assert [r.athlete_id for r in rows] == ["1"]
-
-
-def test_scrape_segment_passes_the_segment_filters_to_the_source() -> None:
-    from app.config import DateRange, FilterType, Gender
-
+def test_scrape_windows_scrapes_each_preset_with_the_segment_cohort() -> None:
     board = _FakeLeaderboard([[_row(1)]])
     segment = SegmentConfig(
         "41792375",
-        date_range=DateRange.THIS_WEEK,
         gender=Gender.WOMEN,
         filter_type=FilterType.FOLLOWING,
     )
-    scrape_segment(board, segment)
-    assert board.filters == [("this_week", "F", "following")]
+    rows = scrape_windows(board, segment, [DateRange.TODAY, DateRange.THIS_WEEK])
+    # One page per preset; each carries the segment's gender/filter cohort.
+    assert [r.athlete_id for r in rows] == ["1", "1"]
+    assert board.filters == [
+        ("today", "F", "following"),
+        ("this_week", "F", "following"),
+    ]
+
+
+def test_scrape_windows_all_time_omits_the_date_range() -> None:
+    board = _FakeLeaderboard([[_row(1)]])
+    scrape_windows(board, SegmentConfig("1"), [DateRange.ALL_TIME])
+    assert board.filters == [("all_time", "overall", "all")]

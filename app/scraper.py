@@ -1,18 +1,18 @@
-"""Collect a segment's leaderboard rows, page by page, and narrow to a date window.
+"""Collect a segment's leaderboard rows, page by page, across one or more windows.
 
 The leaderboard source is abstracted behind the ``Leaderboard`` protocol so pagination
 is unit-testable with a fake; the real implementation is
 ``app.leaderboard_api.StravaLeaderboard`` (Strava's JSON endpoint). A page cap guards
-against a bad total count looping forever.
+against a bad total count looping forever. ``scrape_windows`` reads a segment across
+several date-range presets (chosen by ``app.windows``) and returns every row; the caller
+merges them into the segment store, where duplicates collapse and the date filter runs.
 """
 
 from __future__ import annotations
 
-from datetime import date
 from typing import Protocol
 
-from app.config import SegmentConfig
-from app.leaderboard import filter_by_date
+from app.config import DateRange, SegmentConfig
 from app.models import LeaderboardRow
 
 _MAX_PAGES = 50
@@ -58,22 +58,26 @@ def collect_pages(
     return rows
 
 
-def scrape_segment(
+def scrape_windows(
     leaderboard: Leaderboard,
     segment: SegmentConfig,
-    date_from: date | None = None,
-    date_to: date | None = None,
+    presets: list[DateRange],
 ) -> list[LeaderboardRow]:
-    """Scrape one segment's leaderboard and narrow it to the collection window.
+    """Scrape one segment across each date-range ``preset`` and return all rows.
 
-    The segment's own Strava filters (``date_range``/``gender``/``filter_type``) pick
-    the board server-side; ``date_from``/``date_to`` then narrow rows by effort date.
+    Rows from different windows overlap heavily; the segment store deduplicates them, so
+    scraping several widths only widens coverage. The segment's own gender/filter cohort
+    is used for every window.
     """
-    rows = collect_pages(
-        leaderboard,
-        segment.segment_id,
-        segment.date_range.value,
-        segment.gender.value,
-        segment.filter_type.value,
-    )
-    return filter_by_date(rows, date_from, date_to)
+    rows: list[LeaderboardRow] = []
+    for preset in presets:
+        rows.extend(
+            collect_pages(
+                leaderboard,
+                segment.segment_id,
+                preset.value,
+                segment.gender.value,
+                segment.filter_type.value,
+            )
+        )
+    return rows
