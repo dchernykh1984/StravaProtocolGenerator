@@ -105,6 +105,7 @@ class StageColumns(PersonColumns):
     show_place: bool = True
     show_name: bool = True
     disable_dnf: bool = True
+    group_label: str = ""
     show_gap: bool = False
     gap_label: str = "(gap)"
     show_links: bool = False
@@ -120,6 +121,7 @@ class CupColumns(PersonColumns):
     show_place: bool = True
     show_name: bool = True
     disable_dnf: bool = True
+    group_label: str = ""
     show_gap: bool = False
     gap_label: str = "(gap)"
     show_stage_gap: bool = False
@@ -302,9 +304,15 @@ def _open_document(
     _write_race_header(buf, info, styles)
 
 
-def _open_table(buf: StringIO, group_name: str, styles: HtmlStyles) -> None:
+def _open_table(
+    buf: StringIO, group_name: str, styles: HtmlStyles, group_label: str = ""
+) -> None:
     if group_name:
-        buf.write(f"{styles.group_name_style}{html.escape(group_name)}</FONT><BR>\n")
+        heading = f"{group_label} {group_name}" if group_label else group_name
+        buf.write(
+            f"<CENTER>{styles.group_name_style}"
+            f"{html.escape(heading)}</FONT></CENTER><BR>\n"
+        )
     # border=0 (as in FinishProtocolGenerator): no cell dividers -- the template's CSS
     # and the per-row background styles carry the look, so the same template matches it.
     buf.write(f'<table style="{styles.table_style}" border=0>\n')
@@ -329,7 +337,7 @@ def render_stage_protocol(
     buf = StringIO()
     _open_document(buf, title, styles, info)
     for group_name, ranked in groups:
-        _open_table(buf, group_name, styles)
+        _open_table(buf, group_name, styles, columns.group_label)
         buf.write(f'<tr style="{styles.top_line_style}">')
         if columns.show_place:
             buf.write(_header_cell(columns.place_label))
@@ -387,7 +395,7 @@ def render_cup_protocol(
     buf = StringIO()
     _open_document(buf, title, styles, info)
     for group_name, ranked in groups:
-        _open_table(buf, group_name, styles)
+        _open_table(buf, group_name, styles, columns.group_label)
         _write_cup_header(buf, stage_labels, columns, styles)
         stage_leaders = [_stage_leader(ranked, j) for j in range(len(stage_labels))]
         total_leader = _first_value(ranked, lambda e: cast(CupEntry, e).total)
