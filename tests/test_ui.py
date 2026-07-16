@@ -221,6 +221,16 @@ def test_segment_filters_round_trip() -> None:
     assert collected.filter_type is FilterType.MY_RESULTS
 
 
+def test_segment_default_date_range_round_trips() -> None:
+    from app.config import DateRange
+
+    segment = SegmentConfig("5", date_range=DateRange.DEFAULT)
+    tab = mw.StageTab(StageConfig(segments=[segment]))
+    row = tab.segments.rows[0]
+    assert row.date_range.currentText() == "default"
+    assert tab.to_config().segments[0].date_range is DateRange.DEFAULT
+
+
 def test_stage_unregistered_group_round_trips() -> None:
     tab = mw.StageTab(
         StageConfig(unregistered_group_name="Stage guests", show_unregistered=False)

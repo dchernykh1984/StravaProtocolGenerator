@@ -36,9 +36,8 @@ from PySide6.QtWidgets import (
 
 from app.backup import (
     CONFIG_NAME,
-    RAWDATA_NAME,
+    FileSegmentStorage,
     load_config,
-    load_raw_data,
     save_config,
     save_raw_data,
 )
@@ -64,7 +63,6 @@ HISTORY_DIR = "temp"
 LOG_DIR = "logs"
 ICON_PATH = str(Path(__file__).parent / "app.ico")
 _CONFIG_PATH = f"{DATA_DIR}/{CONFIG_NAME}"
-_RAWDATA_PATH = f"{DATA_DIR}/{RAWDATA_NAME}"
 _ACTIONS = [a.value for a in HttpAction]
 _STAGE_RULES = [r.value for r in StageRule]
 _CUP_RULES = [r.value for r in CupRule]
@@ -277,7 +275,7 @@ class _GenerateWorker(QThread):
     def __init__(self, config: AppConfig) -> None:
         super().__init__()
         self._config = config
-        self._previous = load_raw_data(_RAWDATA_PATH)
+        self._storage = FileSegmentStorage(DATA_DIR, HISTORY_DIR)
 
     def _log_request(self, url: str) -> None:
         self.request_logged.emit(f"GET {url}")
@@ -304,7 +302,7 @@ class _GenerateWorker(QThread):
         )
         try:
             return generate(
-                self._config, leaderboard, client, publish=True, previous=self._previous
+                self._config, leaderboard, client, publish=True, storage=self._storage
             )
         except StravaAuthError as exc:
             raise RuntimeError(
