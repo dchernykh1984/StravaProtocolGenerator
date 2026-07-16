@@ -415,8 +415,12 @@ class StageTab(QWidget):
         self._form.addRow("Absolute file", self.absolute_file)
         self._form.addRow("Group file", self.group_file)
         self._form.addRow("Cup column label", self.cup_column_label)
-        self._form.addRow("Place label", self.place_label)
-        self._form.addRow("Name label", self.name_label)
+        self._form.addRow(
+            "Place label", _field_with_checkbox(self.place_label, self.show_place)
+        )
+        self._form.addRow(
+            "Name label", _field_with_checkbox(self.name_label, self.show_name)
+        )
         self._form.addRow(
             "Year label", _field_with_checkbox(self.year_label, self.show_year)
         )
@@ -430,8 +434,6 @@ class StageTab(QWidget):
         self._form.addRow(
             "Gap label", _field_with_checkbox(self.gap_label, self.show_gap)
         )
-        self._form.addRow("", self.show_place)
-        self._form.addRow("", self.show_name)
         self._form.addRow(
             "Unregistered group",
             _field_with_checkbox(self.unregistered_group_name, self.show_unregistered),
