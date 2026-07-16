@@ -184,6 +184,81 @@ def test_generate_renders_per_protocol_race_info() -> None:
     assert "Cup org" not in stage_abs
 
 
+class _FakeResolver:
+    def __init__(self, mapping: dict[str, str]) -> None:
+        self._mapping = mapping
+        self.calls: list[tuple[str, bool]] = []
+
+    def athlete_id(self, link: str, reload: bool) -> str | None:
+        self.calls.append((link, reload))
+        return self._mapping.get(link)
+
+
+def _roster_with_app_link() -> ParticipantsResponse:
+    return ParticipantsResponse(
+        competition_id=250,
+        categories=[Category(id=1, name="3.5+")],
+        participants=[
+            Participant(
+                id=1,
+                first_name="Ivan",
+                last_name="Petrov",
+                participant_names="Registered Name",
+                category_id=1,
+                category_name="3.5+",
+                additional_info="profile https://strava.app.link/M8iCpTsoO4b",
+            )
+        ],
+    )
+
+
+def test_generate_resolves_app_links_and_matches_by_id() -> None:
+    resolver = _FakeResolver({"https://strava.app.link/M8iCpTsoO4b": "16069938"})
+    # The board name differs from the registration, so only an id match can work.
+    browser = _FakeLeaderboard({"seg1": _row("16069938", "Strava Name", "5:00")})
+    written: dict[str, str] = {}
+    generate(
+        _config(),
+        browser,
+        _FakeClient(_roster_with_app_link()),
+        writer=_capture_writer(written),
+        link_resolver=resolver,
+    )
+    stage_grp = next(c for p, c in written.items() if "Day_1_group" in p)
+    assert (
+        "3.5+" in stage_grp
+    )  # matched -> in the registered category, not unregistered
+    assert "5:00" in stage_grp
+    assert resolver.calls == [("https://strava.app.link/M8iCpTsoO4b", False)]
+
+
+def test_generate_leaves_non_app_link_registrations_untouched() -> None:
+    resolver = _FakeResolver({})  # roster has a plain athletes/111, no app.link
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
+    generate(
+        _config(),
+        browser,
+        _FakeClient(_roster()),
+        writer=_capture_writer({}),
+        link_resolver=resolver,
+    )
+    assert resolver.calls == []  # no app.link -> the resolver is never consulted
+
+
+def test_generate_reload_links_forces_resolution() -> None:
+    resolver = _FakeResolver({"https://strava.app.link/M8iCpTsoO4b": "16069938"})
+    browser = _FakeLeaderboard({"seg1": _row("16069938", "Strava Name", "5:00")})
+    generate(
+        _config(),
+        browser,
+        _FakeClient(_roster_with_app_link()),
+        writer=_capture_writer({}),
+        link_resolver=resolver,
+        reload_links=True,
+    )
+    assert resolver.calls == [("https://strava.app.link/M8iCpTsoO4b", True)]
+
+
 def test_generate_shows_year_team_city_from_registration() -> None:
     roster = ParticipantsResponse(
         competition_id=250,

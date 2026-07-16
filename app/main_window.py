@@ -35,11 +35,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.applink import AppLinkResolver, CachingLinkResolver
 from app.backup import (
     CONFIG_NAME,
     FileSegmentStorage,
     load_config,
+    load_link_cache,
     save_config,
+    save_link_cache,
     save_raw_data,
 )
 from app.config import (
@@ -321,10 +324,14 @@ class _GenerateWorker(QThread):
     failed = Signal(str)
     request_logged = Signal(str)
 
-    def __init__(self, config: AppConfig) -> None:
+    def __init__(self, config: AppConfig, reload_links: bool = False) -> None:
         super().__init__()
         self._config = config
         self._storage = FileSegmentStorage(DATA_DIR, HISTORY_DIR)
+        self._reload_links = reload_links
+        self._links = CachingLinkResolver(
+            AppLinkResolver(on_request=self._log_request), load_link_cache(DATA_DIR)
+        )
 
     def _log_request(self, url: str) -> None:
         self.request_logged.emit(f"GET {url}")
@@ -334,6 +341,7 @@ class _GenerateWorker(QThread):
             client = SiteApiClient(self._config.site_url)
             result = self._generate_authenticated(client)
             save_raw_data(result.raw_snapshot, DATA_DIR, HISTORY_DIR)
+            save_link_cache(DATA_DIR, self._links.cache)
             self.done.emit(result)
         except Exception as exc:  # report any failure back to the UI log
             self.failed.emit(str(exc))
@@ -351,7 +359,13 @@ class _GenerateWorker(QThread):
         )
         try:
             return generate(
-                self._config, leaderboard, client, publish=True, storage=self._storage
+                self._config,
+                leaderboard,
+                client,
+                publish=True,
+                storage=self._storage,
+                link_resolver=self._links,
+                reload_links=self._reload_links,
             )
         except StravaAuthError as exc:
             raise RuntimeError(
@@ -751,10 +765,8 @@ class MainWindow(QMainWindow):
 
     def _build_action_buttons(self) -> QHBoxLayout:
         row = QHBoxLayout()
-        login_btn = QPushButton("Login to Strava")
-        login_btn.clicked.connect(self._on_login)
         generate_btn = QPushButton("Generate")
-        generate_btn.clicked.connect(self._on_generate)
+        generate_btn.clicked.connect(lambda: self._on_generate())
         self._auto_refresh = QCheckBox("Auto-refresh")
         self._auto_refresh.toggled.connect(self._on_refresh_toggled)
         self._interval = QSpinBox()
@@ -762,12 +774,18 @@ class MainWindow(QMainWindow):
         self._interval.setValue(30)
         save_btn = QPushButton("Save config")
         save_btn.clicked.connect(self._on_save)
-        row.addWidget(login_btn)
+        login_btn = QPushButton("Login to Strava")
+        login_btn.clicked.connect(self._on_login)
+        reload_btn = QPushButton("Reload athletes ids")
+        reload_btn.clicked.connect(lambda: self._on_generate(reload_links=True))
+        # Order: generate, auto-refresh, save, login, reload athlete ids.
         row.addWidget(generate_btn)
         row.addWidget(self._auto_refresh)
         row.addWidget(QLabel("Interval (sec):"))
         row.addWidget(self._interval)
         row.addWidget(save_btn)
+        row.addWidget(login_btn)
+        row.addWidget(reload_btn)
         row.addStretch(1)
         return row
 
@@ -855,14 +873,16 @@ class MainWindow(QMainWindow):
         save_config(self.collect_config(), DATA_DIR, HISTORY_DIR)
         self._append_log("Config saved.")
 
-    def _on_generate(self) -> None:
+    def _on_generate(self, reload_links: bool = False) -> None:
         if self._worker is not None and self._worker.isRunning():
             self._append_log("A generation is already running.")
             return
         config = self.collect_config()
         save_config(config, DATA_DIR, HISTORY_DIR)
+        if reload_links:
+            self._append_log("Reloading all Strava athlete ids...")
         self._append_log("Generating...")
-        self._worker = _GenerateWorker(config)
+        self._worker = _GenerateWorker(config, reload_links=reload_links)
         self._worker.done.connect(self._on_generation_done)
         self._worker.failed.connect(self._on_generation_failed)
         self._worker.request_logged.connect(self._append_log)

@@ -15,11 +15,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from app.applink import AppLinkCache
 from app.config import AppConfig
 from app.models import LeaderboardRow
 from app.store import SegmentStore
 
 CONFIG_NAME = "config.json"
+LINK_CACHE_NAME = "applink_ids.json"
 RAWDATA_NAME = "rawdata.json"
 SEGMENTS_DIRNAME = "segments"
 
@@ -108,6 +110,19 @@ def list_snapshots(history_dir: str | Path, prefix: str = "rawdata_") -> list[Pa
     if not directory.exists():
         return []
     return sorted(directory.glob(f"{prefix}*.json"))
+
+
+def load_link_cache(data_dir: str | Path) -> AppLinkCache:
+    """Load the app.link -> athlete-id cache, or an empty one if there is none yet."""
+    data = _read_json(Path(data_dir) / LINK_CACHE_NAME)
+    return AppLinkCache.from_dict(data if isinstance(data, dict) else None)
+
+
+def save_link_cache(data_dir: str | Path, cache: AppLinkCache) -> Path:
+    """Write the app.link -> athlete-id cache, returning its path."""
+    path = Path(data_dir) / LINK_CACHE_NAME
+    _write_json(path, cache.to_dict())
+    return path
 
 
 def segment_store_path(data_dir: str | Path, segment_id: str) -> Path:

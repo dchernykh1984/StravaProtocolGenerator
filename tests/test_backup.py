@@ -146,3 +146,14 @@ def test_file_segment_storage_commits_store_and_archive(tmp_path) -> None:
     assert storage.load("55") == store  # persisted to data/
     archives = list((history_dir / "segments" / "55").glob("*.json"))
     assert len(archives) == 1  # one scrape archived under the segment tree
+
+
+def test_link_cache_round_trips_on_disk(tmp_path) -> None:
+    from app.applink import AppLinkCache
+    from app.backup import load_link_cache, save_link_cache
+
+    cache = AppLinkCache()
+    cache.put("https://strava.app.link/x", "16069938")
+    save_link_cache(tmp_path, cache)
+    assert load_link_cache(tmp_path) == cache
+    assert load_link_cache(tmp_path / "empty").ids == {}

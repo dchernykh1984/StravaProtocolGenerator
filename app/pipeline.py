@@ -15,6 +15,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Protocol
 
+from app.applink import find_app_link
 from app.config import (
     AppConfig,
     CupConfig,
@@ -75,6 +76,12 @@ class SegmentStorage(Protocol):
     def commit(
         self, segment_id: str, store: SegmentStore, scraped: list[LeaderboardRow]
     ) -> None: ...
+
+
+class LinkResolver(Protocol):
+    """Resolves a Strava app.link to an athlete id (the caching impl is in applink)."""
+
+    def athlete_id(self, link: str, reload: bool) -> str | None: ...
 
 
 class _MemoryStorage:
@@ -171,6 +178,30 @@ def _rank_all(
     entries: list[StageEntry | CupEntry], show_unregistered: bool
 ) -> list[tuple[str, list[Ranked]]]:
     return [("", rank_entries(_kept(entries, show_unregistered)))]
+
+
+def _resolve_links(
+    participants: list[Participant],
+    resolver: LinkResolver | None,
+    reload_all: bool,
+) -> None:
+    """Turn any ``app.link`` in a registration into a canonical athlete URL, in place.
+
+    Matching only understands ``athletes/<id>``, so a "share from app" link is resolved
+    (once, then cached by the resolver) and spliced into ``additional_info``. A link
+    that cannot be resolved is left as-is, so matching falls back to the rider's name.
+    """
+    if resolver is None:
+        return
+    for participant in participants:
+        link = find_app_link(participant.additional_info)
+        if link is None:
+            continue
+        athlete_id = resolver.athlete_id(link, reload_all)
+        if athlete_id:
+            participant.additional_info = participant.additional_info.replace(
+                link, f"https://www.strava.com/athletes/{athlete_id}"
+            )
 
 
 def _styles(config: AppConfig) -> HtmlStyles:
@@ -519,6 +550,8 @@ def generate(
     publish: bool = True,
     storage: SegmentStorage | None = None,
     today: date | None = None,
+    link_resolver: LinkResolver | None = None,
+    reload_links: bool = False,
 ) -> GenerationResult:
     """Run a live generation: roster, scrape stages, render, publish, and snapshot.
 
@@ -526,6 +559,8 @@ def generate(
     registered but rode) still surface. Each segment's efforts accumulate in ``storage``
     (see ``app.store``), so results captured earlier survive Strava collapsing its
     leaderboard; without a ``storage`` the run is stateless (nothing persists).
+    ``link_resolver`` turns any Strava "share from app" link in a registration into an
+    athlete id (``reload_links`` re-resolves every link, not just the ones not cached).
     """
     result = GenerationResult()
     participants: list[Participant] = []
@@ -537,6 +572,7 @@ def generate(
     except SiteApiError as exc:
         result.errors.append(f"roster fetch failed: {exc}")
 
+    _resolve_links(participants, link_resolver, reload_links)
     storage = storage or _MemoryStorage()
     when = today or date.today()
     stages_rows: list[list[list[LeaderboardRow]]] = [
