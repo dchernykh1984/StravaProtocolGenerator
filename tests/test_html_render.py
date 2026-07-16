@@ -227,6 +227,29 @@ def test_cup_protocol_shows_registration_columns() -> None:
     assert "1990" in html and "ART" in html and "Astana" in html
 
 
+def test_stage_protocol_marks_no_result_as_dnf() -> None:
+    finished = StageEntry(Competitor("p:1", "Ivan", "A", True), [300.0], 300.0)
+    no_result = StageEntry(Competitor("p:2", "Anna", "A", True), [None], None)
+    group = [("A", [Ranked(1, finished), Ranked(None, no_result)])]
+    # DNF shown when not disabled, blank when disabled.
+    shown = render_stage_protocol("S", group, columns=StageColumns(disable_dnf=False))
+    assert "<td ALIGN=center>DNF</td>" in shown
+    hidden = render_stage_protocol("S", group, columns=StageColumns(disable_dnf=True))
+    assert "DNF" not in hidden
+
+
+def test_cup_protocol_marks_no_result_as_dnf() -> None:
+    finished = CupEntry(Competitor("p:1", "Ivan", "A", True), [300.0], 300.0)
+    none_done = CupEntry(Competitor("p:2", "Anna", "A", True), [None], None)
+    html = render_cup_protocol(
+        "Cup",
+        [("A", [Ranked(1, finished), Ranked(None, none_done)])],
+        ["D1"],
+        columns=CupColumns(disable_dnf=False),
+    )
+    assert "<td ALIGN=center>DNF</td>" in html
+
+
 def test_gap_text_covers_leader_slower_and_missing() -> None:
     assert _gap_text(300.0, 300.0, 0) == "(0:00)"  # leader shows a zero gap
     assert _gap_text(500.0, 300.0, 0) == "(+3:20)"  # slower than the leader

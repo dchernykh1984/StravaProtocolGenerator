@@ -104,6 +104,7 @@ class StageColumns(PersonColumns):
     result_label: str = "Result"
     show_place: bool = True
     show_name: bool = True
+    disable_dnf: bool = True
     show_gap: bool = False
     gap_label: str = "(gap)"
     show_links: bool = False
@@ -118,6 +119,7 @@ class CupColumns(PersonColumns):
     total_label: str = "Total"
     show_place: bool = True
     show_name: bool = True
+    disable_dnf: bool = True
     show_gap: bool = False
     gap_label: str = "(gap)"
     show_stage_gap: bool = False
@@ -127,8 +129,11 @@ class CupColumns(PersonColumns):
     show_links: bool = False
 
 
-def _place_text(place: int | None) -> str:
-    return str(place) if place is not None else ""
+def _place_text(place: int | None, disable_dnf: bool) -> str:
+    """The place number, or ``DNF`` for a rider with no result (blank when disabled)."""
+    if place is not None:
+        return str(place)
+    return "" if disable_dnf else "DNF"
 
 
 def _stage_url(entry: CupEntry, index: int) -> str:
@@ -343,7 +348,7 @@ def render_stage_protocol(
             entry = cast(StageEntry, item.entry)
             buf.write(f'<tr style="{_row_style(styles, i)}">')
             if columns.show_place:
-                buf.write(_cell(_place_text(item.place)))
+                buf.write(_cell(_place_text(item.place, columns.disable_dnf)))
             if columns.show_name:
                 name = entry.competitor.name
                 url = entry.competitor.athlete_url if columns.show_links else ""
@@ -438,7 +443,7 @@ def _write_cup_row(
 ) -> None:
     entry = cast(CupEntry, item.entry)
     if columns.show_place:
-        buf.write(_cell(_place_text(item.place)))
+        buf.write(_cell(_place_text(item.place, columns.disable_dnf)))
     if columns.show_name:
         url = entry.competitor.athlete_url if columns.show_links else ""
         buf.write(_link_cell(entry.competitor.name, url))
