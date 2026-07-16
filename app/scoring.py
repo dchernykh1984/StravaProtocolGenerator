@@ -175,9 +175,15 @@ def stage_contribution(entry: StageEntry, rule: StageRule) -> float | None:
 
 
 def combine_cup(contributions: list[float | None], rule: CupRule) -> float | None:
-    """Combine per-stage contributions into a cup total, per the cup rule."""
+    """Combine per-stage contributions into a cup total, per the cup rule.
+
+    Missing stages are skipped, so the total covers only the stages a competitor
+    finished (``None`` when they finished none); ``rank_entries`` still puts competitors
+    who completed more stages ahead of those who completed fewer.
+    """
     if rule is CupRule.SUM_OF_TIMES:
-        return combine_times(contributions)
+        present = [c for c in contributions if c is not None]
+        return sum(present) if present else None
     raise ValueError(f"unsupported cup rule: {rule}")  # pragma: no cover
 
 
@@ -190,8 +196,8 @@ def build_cup_entries(
 
     ``stage_rules`` (defaulting to ``TIME`` for each stage) selects what each stage
     contributes; ``cup_rule`` selects how they combine. A competitor missing from a
-    stage contributes ``None`` there, so their total is undefined unless they scored in
-    every stage.
+    stage contributes ``None`` there; the total then covers only their completed stages,
+    and ranking places competitors who completed more stages ahead.
     """
     n = len(per_stage_entries)
     rules = stage_rules or [StageRule.TIME] * n
@@ -223,23 +229,37 @@ def build_cup_entries(
     return cup
 
 
-def _value_of(entry: StageEntry | CupEntry) -> float | None:
-    return entry.total if isinstance(entry, CupEntry) else entry.value
+def _rank_key(entry: StageEntry | CupEntry) -> tuple[float, ...] | None:
+    """Sort key (lower is better); ``None`` means unranked and is kept last.
+
+    A cup entry ranks first by how many stages it missed (fewer is better, so everyone
+    with all stages precedes everyone missing one, and so on), then by its combined
+    result over the stages it did complete. A stage entry ranks by its time.
+    """
+    if isinstance(entry, CupEntry):
+        completed = sum(1 for value in entry.stage_values if value is not None)
+        if completed == 0 or entry.total is None:
+            return None
+        missed = len(entry.stage_values) - completed
+        return (missed, entry.total)
+    return None if entry.value is None else (entry.value,)
 
 
 def rank_entries(entries: list[StageEntry | CupEntry]) -> list[Ranked]:
-    """Rank entries fastest-first, ties sharing a place, missing results unranked last.
+    """Rank entries best-first, ties sharing a place, missing results unranked last.
 
-    Entries with a value are sorted ascending (lower time is better) and numbered with
-    standard competition ranking (equal values share a place, the next distinct value
-    skips ahead). Entries without a value keep their input order and get place ``None``.
+    Stage entries are ordered by time (ascending). Cup entries are ordered first by the
+    number of stages completed (more is better) and then by the cup total over those
+    stages, so a rider who finished every stage always outranks one who missed a stage.
+    Equal keys share a place (standard competition numbering); an entry with no result
+    keeps its input order and gets place ``None``.
     """
-    scored = [e for e in entries if _value_of(e) is not None]
-    unscored = [e for e in entries if _value_of(e) is None]
-    scored.sort(key=lambda e: _value_of(e))  # type: ignore[arg-type,return-value]
+    scored = [e for e in entries if _rank_key(e) is not None]
+    unscored = [e for e in entries if _rank_key(e) is None]
+    scored.sort(key=lambda e: _rank_key(e))  # type: ignore[arg-type,return-value]
     ranked: list[Ranked] = []
     for i, entry in enumerate(scored):
-        if i > 0 and _value_of(entry) == _value_of(scored[i - 1]):
+        if i > 0 and _rank_key(entry) == _rank_key(scored[i - 1]):
             place = ranked[-1].place
         else:
             place = i + 1

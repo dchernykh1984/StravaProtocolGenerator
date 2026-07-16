@@ -153,13 +153,24 @@ def test_build_cup_entries_sums_across_stages() -> None:
     assert cup[0].total == 500.0
 
 
-def test_build_cup_entries_missing_stage_has_no_total() -> None:
+def test_build_cup_entries_missing_stage_uses_partial_total() -> None:
     p = [_participant(1, "Ivan Petrov")]
     stage1 = build_stage_entries([MatchResult(results={1: _row("I P", "1", 300.0)})], p)
     stage2 = build_stage_entries([MatchResult(results={})], p)
     cup = build_cup_entries([stage1, stage2])
     assert cup[0].stage_values == [300.0, None]
-    assert cup[0].total is None
+    assert cup[0].total == 300.0  # only the completed stage counts
+
+
+def test_rank_cup_orders_by_stages_completed_then_total() -> None:
+    fast_full = CupEntry(_comp("Fast"), [150.0, 150.0], 300.0)
+    slow_full = CupEntry(_comp("Full"), [300.0, 200.0], 500.0)
+    partial = CupEntry(_comp("Partial"), [100.0, None], 100.0)  # tiny total, 1 missed
+    none_done = CupEntry(_comp("None"), [None, None], None)
+    ranked = rank_entries([partial, slow_full, none_done, fast_full])
+    places = [(r.entry.competitor.name, r.place) for r in ranked]
+    # Both full-completion riders rank ahead of the partial one despite its tiny total.
+    assert places == [("Fast", 1), ("Full", 2), ("Partial", 3), ("None", None)]
 
 
 def test_rank_entries_ties_and_unranked() -> None:
