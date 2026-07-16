@@ -107,6 +107,8 @@ class CupColumns:
     gap_label: str = "(gap)"
     show_stage_gap: bool = False
     stage_gap_label: str = "(gap)"
+    show_stage_count: bool = False
+    stage_count_label: str = "(stages)"
     show_links: bool = False
 
 
@@ -127,12 +129,17 @@ def _header_cell(label: str) -> str:
     return f"<td ALIGN=center><B>{html.escape(label)}</B></td>"
 
 
+def _header_cell_subs(label: str, subs: list[str], styles: HtmlStyles) -> str:
+    """A header cell with one or more smaller caption lines below the label."""
+    inner = html.escape(label)
+    for sub in subs:
+        inner += f"<BR>{styles.additional_text_top_style}{html.escape(sub)}</FONT>"
+    return f"<td ALIGN=center><B>{inner}</B></td>"
+
+
 def _header_cell_with_sub(label: str, sub: str, styles: HtmlStyles) -> str:
     """A header cell with a smaller second line (e.g. the gap-to-leader caption)."""
-    return (
-        f"<td ALIGN=center><B>{html.escape(label)}<BR>"
-        f"{styles.additional_text_top_style}{html.escape(sub)}</FONT></B></td>"
-    )
+    return _header_cell_subs(label, [sub], styles)
 
 
 def _link_inner(value: str, url: str) -> str:
@@ -171,10 +178,12 @@ def _gap_text(value: float | None, leader: float | None, decimals: int) -> str:
     return f"({sign}{formatted})"
 
 
-def _value_cell(inner: str, gap: str, styles: HtmlStyles) -> str:
-    """A centered result cell, with the gap on a second line when one is given."""
+def _value_cell(inner: str, gap: str, styles: HtmlStyles, extra: str = "") -> str:
+    """A centered result cell: value, then the gap and any ``extra`` line below it."""
     if gap:
         inner += f"<BR>{styles.additional_text_style}{html.escape(gap)}</FONT>"
+    if extra:
+        inner += f"<BR>{extra}"
     return f"<td ALIGN=center>{inner}</td>"
 
 
@@ -364,8 +373,13 @@ def _write_cup_header(
             buf.write(_header_cell_with_sub(label, columns.stage_gap_label, styles))
         else:
             buf.write(_header_cell(label))
+    total_subs: list[str] = []
     if columns.show_gap:
-        buf.write(_header_cell_with_sub(columns.total_label, columns.gap_label, styles))
+        total_subs.append(columns.gap_label)
+    if columns.show_stage_count:
+        total_subs.append(columns.stage_count_label)
+    if total_subs:
+        buf.write(_header_cell_subs(columns.total_label, total_subs, styles))
     else:
         buf.write(_header_cell(columns.total_label))
     buf.write("</tr>\n")
@@ -398,6 +412,15 @@ def _write_cup_row(
     total_gap = (
         _gap_text(entry.total, total_leader, decimals) if columns.show_gap else ""
     )
+    count_extra = ""
+    if columns.show_stage_count:
+        completed = sum(1 for v in entry.stage_values if v is not None)
+        count_extra = f'<FONT SIZE="3">({completed})</FONT>'
     buf.write(
-        _value_cell(html.escape(format_time(entry.total, decimals)), total_gap, styles)
+        _value_cell(
+            html.escape(format_time(entry.total, decimals)),
+            total_gap,
+            styles,
+            count_extra,
+        )
     )

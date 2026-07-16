@@ -54,6 +54,8 @@ def _rich_config() -> AppConfig:
             show_gap=False,
             show_stage_gap=False,
             stage_gap_label="(sg)",
+            show_stage_count=False,
+            stage_count_label="(cnt)",
             unregistered_group_name="Guests",
             show_unregistered=False,
             race_info=RaceInfo(organizer="UBT", sponsor="<b>x</b>"),

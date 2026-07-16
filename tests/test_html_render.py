@@ -215,6 +215,26 @@ def test_cup_protocol_shows_total_and_stage_gaps() -> None:
     assert "(+2:00)" in html  # total gap: 620 - 500
 
 
+def test_cup_protocol_shows_stage_count() -> None:
+    # "Two" completed both stages, "One" only the first.
+    two = CupEntry(Competitor("p:1", "Two", "A", True), [300.0, 200.0], 500.0)
+    one = CupEntry(Competitor("p:2", "One", "A", True), [360.0, None], 360.0)
+    html = render_cup_protocol(
+        "Cup",
+        [("A", [Ranked(1, two), Ranked(2, one)])],
+        ["D1", "D2"],
+        columns=CupColumns(show_stage_count=True, stage_count_label="(done)"),
+    )
+    assert "(done)" in html  # the caption in the total header
+    assert '<FONT SIZE="3">(2)</FONT>' in html  # completed both stages
+    assert '<FONT SIZE="3">(1)</FONT>' in html  # completed one stage
+
+
+def test_cup_protocol_hides_stage_count_by_default() -> None:
+    html = render_cup_protocol("Cup", [_cup_group("A")], ["D1", "D2"])
+    assert '<FONT SIZE="3">(' not in html
+
+
 def test_cup_stage_gap_blank_for_rider_ahead_of_ranked_leader() -> None:
     # The rank-1 rider completed both stages; the rank-2 rider did only one, giving a
     # smaller partial total -- their total gap is negative and must render blank.
