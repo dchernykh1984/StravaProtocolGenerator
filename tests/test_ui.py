@@ -76,6 +76,14 @@ def test_add_stage_left_inserts_copy_before_current() -> None:
     assert window._tabs.widget(2).name.text() == "B"
 
 
+def test_stage_form_uses_compact_spacing() -> None:
+    # The stages tab drives the window height, so its form and race panel are tight.
+    tab = mw.StageTab(StageConfig())
+    assert tab._form.verticalSpacing() == 3
+    assert tab._form.contentsMargins().top() == 0
+    assert tab.race_info.layout().verticalSpacing() == 3
+
+
 def test_stage_date_fields_are_date_fields() -> None:
     tab = mw.StageTab(StageConfig(date_from="2026-08-01", date_to="2026-08-02"))
     assert isinstance(tab.date_from, mw.DateField)

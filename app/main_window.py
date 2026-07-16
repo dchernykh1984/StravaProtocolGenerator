@@ -82,10 +82,19 @@ def _combo(values: list[str], current: str) -> QComboBox:
     return box
 
 
-def _form_layout(parent: QWidget | None = None) -> QFormLayout:
-    """A form whose fields grow to fill the width, so values are not cramped."""
+def _form_layout(
+    parent: QWidget | None = None, *, compact: bool = False
+) -> QFormLayout:
+    """A form whose fields grow to fill the width, so values are not cramped.
+
+    ``compact`` tightens the row spacing and margins so a long stage form takes up
+    less vertical space (the stages tab is what drives the window height).
+    """
     form = QFormLayout(parent) if parent is not None else QFormLayout()
     form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+    if compact:
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setVerticalSpacing(3)
     return form
 
 
@@ -427,8 +436,11 @@ class StageTab(QWidget):
         self.show_unregistered.setChecked(stage.show_unregistered)
 
         # One column, so the wide fields (segments, files) have the full width.
+        # Tight spacing keeps the (long) stage form from stretching the window.
         outer = QVBoxLayout(self)
-        self._form = _form_layout()
+        outer.setContentsMargins(6, 6, 6, 6)
+        outer.setSpacing(3)
+        self._form = _form_layout(compact=True)
         outer.addLayout(self._form)
         self.race_info = RaceInfoPanel(stage.race_info)
         outer.addWidget(self.race_info)
@@ -678,7 +690,7 @@ class RaceInfoPanel(QWidget):
 
     def __init__(self, info: RaceInfo) -> None:
         super().__init__()
-        form = _form_layout(self)
+        form = _form_layout(self, compact=True)
         self.track_label = QLineEdit(info.track_label)
         self.track_conditions = QLineEdit(info.track_conditions)
         self.referee_label = QLineEdit(info.referee_label)
