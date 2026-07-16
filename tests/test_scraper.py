@@ -24,9 +24,18 @@ class _FakeLeaderboard:
         self._pages = pages
         self._total = total if total is not None else sum(len(p) for p in pages)
         self.requested: list[tuple[str, int]] = []
+        self.filters: list[tuple[str, str, str]] = []
 
-    def page(self, segment_id: str, page: int) -> tuple[list[LeaderboardRow], int]:
+    def page(
+        self,
+        segment_id: str,
+        page: int,
+        date_range: str = "",
+        gender: str = "overall",
+        filter_type: str = "all",
+    ) -> tuple[list[LeaderboardRow], int]:
         self.requested.append((segment_id, page))
+        self.filters.append((date_range, gender, filter_type))
         rows = self._pages[page - 1] if page - 1 < len(self._pages) else []
         return rows, self._total
 
@@ -52,7 +61,14 @@ def test_collect_pages_stops_on_empty_page() -> None:
 
 def test_collect_pages_caps_runaway_pagination() -> None:
     class _Endless:
-        def page(self, segment_id: str, page: int) -> tuple[list[LeaderboardRow], int]:
+        def page(
+            self,
+            segment_id: str,
+            page: int,
+            date_range: str = "",
+            gender: str = "overall",
+            filter_type: str = "all",
+        ) -> tuple[list[LeaderboardRow], int]:
             return [_row(page)], 10_000  # never reaches total
 
     assert len(collect_pages(_Endless(), "seg")) == 50  # _MAX_PAGES
@@ -67,3 +83,17 @@ def test_scrape_segment_filters_dates() -> None:
         date_to=date(2025, 8, 5),
     )
     assert [r.athlete_id for r in rows] == ["1"]
+
+
+def test_scrape_segment_passes_the_segment_filters_to_the_source() -> None:
+    from app.config import DateRange, FilterType, Gender
+
+    board = _FakeLeaderboard([[_row(1)]])
+    segment = SegmentConfig(
+        "41792375",
+        date_range=DateRange.THIS_WEEK,
+        gender=Gender.WOMEN,
+        filter_type=FilterType.FOLLOWING,
+    )
+    scrape_segment(board, segment)
+    assert board.filters == [("this_week", "F", "following")]

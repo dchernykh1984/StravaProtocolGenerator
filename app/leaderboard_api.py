@@ -3,9 +3,10 @@
 The segment page is a React app that loads the board via an authenticated XHR to
 ``/frontend/segments/<id>/leaderboard`` returning JSON, so hitting that directly with
 the saved session cookies is the light, reliable way to read results -- no browser and
-no HTML scraping (the page HTML carries no table at all). ``filter_type=all`` with no
-gender gives the overall board; ``elapsedTime`` is seconds and ``startDateLocal`` an
-ISO timestamp, so each entry maps cleanly onto a row.
+no HTML scraping (the page HTML carries no table at all). The ``filter_type``,
+``date_range``, and ``gender`` query params select the board (all / today / overall by
+default); ``elapsedTime`` is seconds and ``startDateLocal`` an ISO timestamp, so each
+entry maps cleanly onto a row.
 """
 
 from __future__ import annotations
@@ -73,12 +74,35 @@ class StravaLeaderboard:
         self._timeout = timeout
         self._on_request = on_request
 
-    def page(self, segment_id: str, page: int) -> tuple[list[LeaderboardRow], int]:
-        """One page of a segment's overall leaderboard: its rows and the total count."""
-        endpoint = _ENDPOINT.format(segment_id=segment_id)
-        data = self._fetch(f"{endpoint}?filter_type=all&page={page}")
+    def page(
+        self,
+        segment_id: str,
+        page: int,
+        date_range: str = "",
+        gender: str = "overall",
+        filter_type: str = "all",
+    ) -> tuple[list[LeaderboardRow], int]:
+        """One page of a segment's leaderboard: its rows and the total count.
+
+        ``date_range`` is Strava's window preset (``today``, ``this_week``, ...); an
+        empty value or ``all_time`` asks for the all-time board (the param is omitted).
+        ``gender`` and ``filter_type`` select the cohort (``overall`` / ``all`` by
+        default).
+        """
+        data = self._fetch(self._url(segment_id, page, date_range, gender, filter_type))
         entries = data.get("leaderboard") or []
         return [_row(e) for e in entries], int(data.get("totalCount", len(entries)))
+
+    @staticmethod
+    def _url(
+        segment_id: str, page: int, date_range: str, gender: str, filter_type: str
+    ) -> str:
+        endpoint = _ENDPOINT.format(segment_id=segment_id)
+        params = [f"filter_type={filter_type or 'all'}"]
+        if date_range and date_range != "all_time":
+            params.append(f"date_range={date_range}")
+        params += [f"gender={gender or 'overall'}", f"page={page}"]
+        return f"{endpoint}?{'&'.join(params)}"
 
     def _fetch(self, url: str) -> dict[str, Any]:
         if self._on_request is not None:

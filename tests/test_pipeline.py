@@ -24,8 +24,17 @@ class _FakeLeaderboard:
 
     def __init__(self, rows_by_segment: dict[str, LeaderboardRow]) -> None:
         self._rows = rows_by_segment
+        self.filters: list[tuple[str, str, str]] = []
 
-    def page(self, segment_id: str, page: int) -> tuple[list[LeaderboardRow], int]:
+    def page(
+        self,
+        segment_id: str,
+        page: int,
+        date_range: str = "",
+        gender: str = "overall",
+        filter_type: str = "all",
+    ) -> tuple[list[LeaderboardRow], int]:
+        self.filters.append((date_range, gender, filter_type))
         present = segment_id in self._rows and page == 1
         rows = [self._rows[segment_id]] if present else []
         return rows, len(rows)
@@ -122,6 +131,18 @@ def test_generate_writes_all_four_protocols() -> None:
     stage_abs = next(c for p, c in written.items() if "Day_1_absolute" in p)
     assert "Ivan Petrov" in stage_abs
     assert "5:00" in stage_abs
+
+
+def test_generate_requests_the_segment_filters() -> None:
+    from app.config import DateRange, FilterType, Gender
+
+    cfg = _config()
+    cfg.stages[0].segments[0].date_range = DateRange.THIS_WEEK
+    cfg.stages[0].segments[0].gender = Gender.WOMEN
+    cfg.stages[0].segments[0].filter_type = FilterType.FOLLOWING
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
+    generate(cfg, browser, _FakeClient(_roster()), writer=_capture_writer({}))
+    assert ("this_week", "F", "following") in browser.filters
 
 
 def test_generate_registered_rider_grouped_by_category() -> None:

@@ -45,6 +45,9 @@ from app.backup import (
 from app.config import (
     AppConfig,
     CupConfig,
+    DateRange,
+    FilterType,
+    Gender,
     HttpAction,
     SegmentConfig,
     StageConfig,
@@ -64,6 +67,9 @@ _RAWDATA_PATH = f"{DATA_DIR}/{RAWDATA_NAME}"
 _ACTIONS = [a.value for a in HttpAction]
 _STAGE_RULES = [r.value for r in StageRule]
 _CUP_RULES = [r.value for r in CupRule]
+_DATE_RANGES = [d.value for d in DateRange]
+_GENDERS = [g.value for g in Gender]
+_FILTER_TYPES = [f.value for f in FilterType]
 
 
 def _combo(values: list[str], current: str) -> QComboBox:
@@ -82,16 +88,76 @@ def _field_with_checkbox(field: QWidget, checkbox: QCheckBox) -> QHBoxLayout:
     return row
 
 
-def _parse_segments(text: str) -> list[SegmentConfig]:
-    """Parse one segment id per line (extra tokens on a line are ignored)."""
-    segments = [
-        SegmentConfig(raw.split()[0]) for raw in text.splitlines() if raw.split()
-    ]
-    return segments or [SegmentConfig()]
+class SegmentRow(QWidget):
+    """One segment's editor: its id plus the Strava leaderboard filter dropdowns."""
+
+    def __init__(self, segment: SegmentConfig) -> None:
+        super().__init__()
+        self.segment_id = QLineEdit(segment.segment_id)
+        self.segment_id.setPlaceholderText("segment id")
+        self.date_range = _combo(_DATE_RANGES, segment.date_range.value)
+        self.gender = _combo(_GENDERS, segment.gender.value)
+        self.filter_type = _combo(_FILTER_TYPES, segment.filter_type.value)
+        self.remove = QToolButton()
+        self.remove.setText("x")
+        row = QHBoxLayout(self)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.addWidget(self.segment_id, stretch=1)
+        row.addWidget(self.date_range)
+        row.addWidget(self.gender)
+        row.addWidget(self.filter_type)
+        row.addWidget(self.remove)
+
+    def to_config(self) -> SegmentConfig:
+        return SegmentConfig(
+            segment_id=self.segment_id.text().split()[0]
+            if self.segment_id.text().split()
+            else "",
+            date_range=DateRange(self.date_range.currentText()),
+            gender=Gender(self.gender.currentText()),
+            filter_type=FilterType(self.filter_type.currentText()),
+        )
 
 
-def _segments_to_text(segments: list[SegmentConfig]) -> str:
-    return "\n".join(seg.segment_id for seg in segments)
+class SegmentList(QWidget):
+    """A stage's segments as a growable list of ``SegmentRow`` editors."""
+
+    def __init__(self, segments: list[SegmentConfig]) -> None:
+        super().__init__()
+        self._layout = QVBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        header = QHBoxLayout()
+        header.setContentsMargins(0, 0, 0, 0)
+        header.addWidget(QLabel("id"), stretch=1)
+        header.addWidget(QLabel("date range"))
+        header.addWidget(QLabel("gender"))
+        header.addWidget(QLabel("filter"))
+        self._layout.addLayout(header)
+        self.rows: list[SegmentRow] = []
+        self._add_button = QPushButton("Add segment")
+        self._add_button.clicked.connect(lambda: self.add_segment())
+        # Add the button first so every row is inserted just above it.
+        self._layout.addWidget(self._add_button)
+        for segment in segments or [SegmentConfig()]:
+            self.add_segment(segment)
+
+    def add_segment(self, segment: SegmentConfig | None = None) -> SegmentRow:
+        row = SegmentRow(segment or SegmentConfig())
+        row.remove.clicked.connect(lambda: self._remove(row))
+        self.rows.append(row)
+        # Keep the "Add segment" button below the rows.
+        self._layout.insertWidget(self._layout.count() - 1, row)
+        return row
+
+    def _remove(self, row: SegmentRow) -> None:
+        if len(self.rows) <= 1:
+            return  # always keep at least one segment row
+        self.rows.remove(row)
+        row.setParent(None)
+
+    def to_config(self) -> list[SegmentConfig]:
+        segments = [r.to_config() for r in self.rows]
+        return segments or [SegmentConfig()]
 
 
 class DateField(QWidget):
@@ -244,7 +310,7 @@ class StageTab(QWidget):
     def __init__(self, stage: StageConfig) -> None:
         super().__init__()
         self.name = QLineEdit(stage.name)
-        self.segments = QPlainTextEdit(_segments_to_text(stage.segments))
+        self.segments = SegmentList(stage.segments)
         self.rule = _combo(_STAGE_RULES, stage.rule.value)
         self.date_from = DateField(stage.date_from)
         self.date_to = DateField(stage.date_to)
@@ -284,7 +350,7 @@ class StageTab(QWidget):
         columns.addLayout(right, stretch=1)
 
         self._left_form.addRow("Stage name", self.name)
-        self._left_form.addRow("Segments (one id per line)", self.segments)
+        self._left_form.addRow("Segments", self.segments)
         self._left_form.addRow("Feed to cup", self.rule)
         self._left_form.addRow("Date from (including)", self.date_from)
         self._left_form.addRow("Date to (including)", self.date_to)
@@ -319,7 +385,7 @@ class StageTab(QWidget):
     def to_config(self) -> StageConfig:
         return StageConfig(
             name=self.name.text(),
-            segments=_parse_segments(self.segments.toPlainText()),
+            segments=self.segments.to_config(),
             rule=StageRule(self.rule.currentText()),
             date_from=self.date_from.iso(),
             date_to=self.date_to.iso(),

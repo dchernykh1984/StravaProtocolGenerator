@@ -177,18 +177,48 @@ def test_two_column_top_keeps_globals_and_cup_fields() -> None:
     assert collected.cup.token == "cup-token"
 
 
-def test_stage_segments_take_only_the_id_ignoring_extra_tokens() -> None:
+def test_stage_segment_id_keeps_only_the_first_token() -> None:
     tab = mw.StageTab(StageConfig(segments=[SegmentConfig("41792375")]))
-    # A legacy "id date_range=this_week" line keeps only the id (filters are gone now).
-    tab.segments.setPlainText("41792375 date_range=this_week\n41792182")
+    tab.segments.rows[0].segment_id.setText("41792182 stray tokens")
     ids = [s.segment_id for s in tab.to_config().segments]
-    assert ids == ["41792375", "41792182"]
+    assert ids == ["41792182"]
+
+
+def test_stage_add_and_remove_segment_rows() -> None:
+    tab = mw.StageTab(StageConfig(segments=[SegmentConfig("111")]))
+    tab.segments.add_segment(SegmentConfig("222"))
+    assert [s.segment_id for s in tab.to_config().segments] == ["111", "222"]
+    tab.segments.rows[0].remove.click()
+    assert [s.segment_id for s in tab.to_config().segments] == ["222"]
+    # The last remaining row is never removed.
+    tab.segments.rows[0].remove.click()
+    assert len(tab.segments.rows) == 1
 
 
 def test_stage_freeze_checkbox_round_trips() -> None:
     tab = mw.StageTab(StageConfig(freeze_strava_data=True))
     assert tab.freeze_strava_data.isChecked()
     assert tab.to_config().freeze_strava_data is True
+
+
+def test_segment_filters_round_trip() -> None:
+    from app.config import DateRange, FilterType, Gender
+
+    segment = SegmentConfig(
+        "5",
+        date_range=DateRange.THIS_MONTH,
+        gender=Gender.WOMEN,
+        filter_type=FilterType.MY_RESULTS,
+    )
+    tab = mw.StageTab(StageConfig(segments=[segment]))
+    row = tab.segments.rows[0]
+    assert row.date_range.currentText() == "this_month"
+    assert row.gender.currentText() == "F"
+    assert row.filter_type.currentText() == "my_results"
+    collected = tab.to_config().segments[0]
+    assert collected.date_range is DateRange.THIS_MONTH
+    assert collected.gender is Gender.WOMEN
+    assert collected.filter_type is FilterType.MY_RESULTS
 
 
 def test_stage_unregistered_group_round_trips() -> None:

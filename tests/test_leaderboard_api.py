@@ -93,7 +93,10 @@ def test_page_parses_json_into_rows_and_total() -> None:
     assert rows[1].athlete_id == "222"  # from the ...IdStr fallback
     assert rows[1].result_seconds is None
     request = opener.requests[0]
-    assert "segments/41792375/leaderboard?filter_type=all&page=1" in request.full_url
+    assert (
+        "segments/41792375/leaderboard?filter_type=all&gender=overall&page=1"
+        in request.full_url
+    )
     assert request.headers.get("Cookie") == "s=tok"
 
 
@@ -103,8 +106,33 @@ def test_page_reports_the_request_url_via_callback() -> None:
     board.page("41792375", 2)
     assert logged == [
         "https://www.strava.com/frontend/segments/41792375/leaderboard"
-        "?filter_type=all&page=2"
+        "?filter_type=all&gender=overall&page=2"
     ]
+
+
+def test_page_adds_the_date_range_window_when_given() -> None:
+    opener = _Opener(_JSON)
+    board = StravaLeaderboard([], opener=opener)
+    board.page("41792182", 1, "this_week")
+    assert (
+        "leaderboard?filter_type=all&date_range=this_week&gender=overall&page=1"
+        in opener.requests[0].full_url
+    )
+
+
+def test_page_omits_date_range_for_all_time() -> None:
+    opener = _Opener(_JSON)
+    board = StravaLeaderboard([], opener=opener)
+    board.page("41792182", 1, "all_time")
+    assert "date_range" not in opener.requests[0].full_url
+
+
+def test_page_sets_gender_and_filter_type() -> None:
+    opener = _Opener(_JSON)
+    board = StravaLeaderboard([], opener=opener)
+    board.page("41792182", 1, "today", gender="F", filter_type="following")
+    url = opener.requests[0].full_url
+    assert "?filter_type=following&date_range=today&gender=F&page=1" in url
 
 
 def test_unauthorized_raises_auth_error() -> None:
