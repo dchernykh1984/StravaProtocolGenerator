@@ -15,7 +15,15 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Protocol
 
-from app.config import AppConfig, CupConfig, HttpAction, SegmentConfig, StageConfig
+from app.config import (
+    AppConfig,
+    CupConfig,
+    FilterType,
+    Gender,
+    HttpAction,
+    SegmentConfig,
+    StageConfig,
+)
 from app.html_render import (
     CupColumns,
     HtmlStyles,
@@ -436,6 +444,19 @@ def _snapshot(
     }
 
 
+def _store_key(segment: SegmentConfig) -> str:
+    """The storage key for a segment: its id, suffixed by any non-default cohort.
+
+    A different Strava cohort (gender/filter) returns different riders, so it must not
+    share a store with the overall board -- otherwise a men-only stage would inherit the
+    women scraped for another stage on the same segment id. The common overall/all case
+    keeps the bare id, so existing stores and file names are unchanged.
+    """
+    if segment.gender is Gender.OVERALL and segment.filter_type is FilterType.ALL:
+        return segment.segment_id
+    return f"{segment.segment_id}_{segment.gender.value}_{segment.filter_type.value}"
+
+
 def _segment_rows(
     segment: SegmentConfig,
     stage: StageConfig,
@@ -452,13 +473,14 @@ def _segment_rows(
     """
     date_from = _parse_iso_date(stage.date_from)
     date_to = _parse_iso_date(stage.date_to)
-    store = storage.load(segment.segment_id)
+    key = _store_key(segment)
+    store = storage.load(key)
     if not stage.freeze_strava_data:
         presets = presets_for_segment(segment, date_from, date_to, today)
         scraped = scrape_windows(leaderboard, segment, presets) if presets else []
         if scraped:  # nothing to persist (or archive) when the board was empty
             store.merge(scraped)
-            storage.commit(segment.segment_id, store, scraped)
+            storage.commit(key, store, scraped)
     return store.best_in_range(date_from, date_to, today)
 
 
