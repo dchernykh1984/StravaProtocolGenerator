@@ -97,6 +97,16 @@ def test_page_parses_json_into_rows_and_total() -> None:
     assert request.headers.get("Cookie") == "s=tok"
 
 
+def test_page_reports_the_request_url_via_callback() -> None:
+    logged: list[str] = []
+    board = StravaLeaderboard([], opener=_Opener(_JSON), on_request=logged.append)
+    board.page("41792375", 2)
+    assert logged == [
+        "https://www.strava.com/frontend/segments/41792375/leaderboard"
+        "?filter_type=all&page=2"
+    ]
+
+
 def test_unauthorized_raises_auth_error() -> None:
     board = StravaLeaderboard([], opener=_Opener(_http_error(401)))
     with pytest.raises(StravaAuthError):
