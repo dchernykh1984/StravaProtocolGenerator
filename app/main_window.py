@@ -448,6 +448,9 @@ class CupPanel(QWidget):
         self.stage_gap_label = QLineEdit(cup.stage_gap_label)
         self.show_stage_gap = QCheckBox("Show")
         self.show_stage_gap.setChecked(cup.show_stage_gap)
+        self.stage_count_label = QLineEdit(cup.stage_count_label)
+        self.show_stage_count = QCheckBox("Show")
+        self.show_stage_count.setChecked(cup.show_stage_count)
         self.unregistered_group_name = QLineEdit(cup.unregistered_group_name)
         self.show_unregistered = QCheckBox("Show")
         self.show_unregistered.setChecked(cup.show_unregistered)
@@ -471,6 +474,10 @@ class CupPanel(QWidget):
         form.addRow(
             "Stage gap label",
             _field_with_checkbox(self.stage_gap_label, self.show_stage_gap),
+        )
+        form.addRow(
+            "Stage count label",
+            _field_with_checkbox(self.stage_count_label, self.show_stage_count),
         )
         form.addRow(
             "Unregistered group",
@@ -500,6 +507,8 @@ class CupPanel(QWidget):
             gap_label=self.gap_label.text(),
             show_stage_gap=self.show_stage_gap.isChecked(),
             stage_gap_label=self.stage_gap_label.text(),
+            show_stage_count=self.show_stage_count.isChecked(),
+            stage_count_label=self.stage_count_label.text(),
             unregistered_group_name=self.unregistered_group_name.text(),
             show_unregistered=self.show_unregistered.isChecked(),
             race_info=self.race_info.to_config(),

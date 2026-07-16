@@ -268,6 +268,15 @@ def test_cup_gaps_round_trip() -> None:
     assert config.stage_gap_label == "(st)"
 
 
+def test_cup_stage_count_round_trips() -> None:
+    panel = mw.CupPanel(CupConfig(show_stage_count=False, stage_count_label="(done)"))
+    assert panel.show_stage_count.isChecked() is False
+    assert panel.stage_count_label.text() == "(done)"
+    config = panel.to_config()
+    assert config.show_stage_count is False
+    assert config.stage_count_label == "(done)"
+
+
 def test_stage_race_info_round_trips() -> None:
     from app.models import RaceInfo
 

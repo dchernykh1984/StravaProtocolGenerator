@@ -221,6 +221,8 @@ class CupConfig:
     gap_label: str = "(gap)"
     show_stage_gap: bool = True
     stage_gap_label: str = "(gap)"
+    show_stage_count: bool = True
+    stage_count_label: str = "(stages)"
     unregistered_group_name: str = "Not registered"
     show_unregistered: bool = True
     race_info: RaceInfo = field(default_factory=RaceInfo)
@@ -245,6 +247,8 @@ class CupConfig:
             "gap_label": self.gap_label,
             "show_stage_gap": self.show_stage_gap,
             "stage_gap_label": self.stage_gap_label,
+            "show_stage_count": self.show_stage_count,
+            "stage_count_label": self.stage_count_label,
             "unregistered_group_name": self.unregistered_group_name,
             "show_unregistered": self.show_unregistered,
             "race_info": self.race_info.to_dict(),
@@ -273,6 +277,8 @@ class CupConfig:
             gap_label=d("gap_label"),
             show_stage_gap=d("show_stage_gap"),
             stage_gap_label=d("stage_gap_label"),
+            show_stage_count=d("show_stage_count"),
+            stage_count_label=d("stage_count_label"),
             unregistered_group_name=d("unregistered_group_name"),
             show_unregistered=d("show_unregistered"),
             race_info=RaceInfo.from_dict(data.get("race_info", {})),

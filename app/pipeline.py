@@ -297,6 +297,8 @@ def _render_cup_outputs(
         gap_label=cup.gap_label,
         show_stage_gap=cup.show_stage_gap,
         stage_gap_label=cup.stage_gap_label,
+        show_stage_count=cup.show_stage_count,
+        stage_count_label=cup.stage_count_label,
         show_links=config.show_strava_links,
     )
     generic: list[StageEntry | CupEntry] = list(cup_entries)
