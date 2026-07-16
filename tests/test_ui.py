@@ -18,7 +18,7 @@ from PySide6.QtGui import QCloseEvent, QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox, QPushButton
 
 from app import main_window as mw
-from app.config import AppConfig, CupConfig, StageConfig
+from app.config import AppConfig, CupConfig, SegmentConfig, StageConfig
 
 _app = QApplication.instance() or QApplication([])
 
@@ -177,6 +177,14 @@ def test_two_column_top_keeps_globals_and_cup_fields() -> None:
     assert collected.output_dir == "out"
     assert collected.cup.name == "Grand Cup"
     assert collected.cup.token == "cup-token"
+
+
+def test_stage_segments_take_only_the_id_ignoring_extra_tokens() -> None:
+    tab = mw.StageTab(StageConfig(segments=[SegmentConfig("41792375")]))
+    # A legacy "id date_range=this_week" line keeps only the id (filters are gone now).
+    tab.segments.setPlainText("41792375 date_range=this_week\n41792182")
+    ids = [s.segment_id for s in tab.to_config().segments]
+    assert ids == ["41792375", "41792182"]
 
 
 def test_stage_freeze_checkbox_round_trips() -> None:

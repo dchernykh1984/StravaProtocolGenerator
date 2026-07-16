@@ -83,23 +83,15 @@ def _field_with_checkbox(field: QWidget, checkbox: QCheckBox) -> QHBoxLayout:
 
 
 def _parse_segments(text: str) -> list[SegmentConfig]:
-    """Parse one segment per line: ``<id> [key=value ...]`` filters."""
-    segments: list[SegmentConfig] = []
-    for raw in text.splitlines():
-        parts = raw.split()
-        if not parts:
-            continue
-        filters = dict(token.split("=", 1) for token in parts[1:] if "=" in token)
-        segments.append(SegmentConfig(parts[0], filters))
+    """Parse one segment id per line (extra tokens on a line are ignored)."""
+    segments = [
+        SegmentConfig(raw.split()[0]) for raw in text.splitlines() if raw.split()
+    ]
     return segments or [SegmentConfig()]
 
 
 def _segments_to_text(segments: list[SegmentConfig]) -> str:
-    lines = []
-    for seg in segments:
-        parts = [seg.segment_id, *[f"{k}={v}" for k, v in seg.filters.items()]]
-        lines.append(" ".join(parts))
-    return "\n".join(lines)
+    return "\n".join(seg.segment_id for seg in segments)
 
 
 class DateField(QWidget):
@@ -289,7 +281,7 @@ class StageTab(QWidget):
         columns.addLayout(right, stretch=1)
 
         self._left_form.addRow("Stage name", self.name)
-        self._left_form.addRow("Segments (id [key=value])", self.segments)
+        self._left_form.addRow("Segments (one id per line)", self.segments)
         self._left_form.addRow("Feed to cup", self.rule)
         self._left_form.addRow("Date from (including)", self.date_from)
         self._left_form.addRow("Date to (including)", self.date_to)
