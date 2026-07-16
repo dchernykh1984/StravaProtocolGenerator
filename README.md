@@ -13,8 +13,9 @@ optionally publishes them back to the site.
 
 - Python 3.14
 - [uv](https://docs.astral.sh/uv/) for dependency management
-- Google Chrome (Selenium drives it to scrape Strava; the driver is resolved
-  automatically by Selenium Manager)
+- Google Chrome (Selenium drives it only for the assisted Strava sign-in; the driver
+  is resolved automatically by Selenium Manager). Leaderboards themselves are then read
+  over HTTP with the saved session, no browser required.
 
 ## Setup
 
@@ -36,8 +37,13 @@ token), and configure the stages and the cup, then generate.
 
 - **Roster** -- fetched from the site's `/api/v1/participants/` endpoint by token,
   giving the registered riders and their categories.
-- **Scraping** -- each stage's Strava segment leaderboards are read page by page
-  and narrowed to the collection window.
+- **Scraping** -- each segment's leaderboard is read over Strava's JSON endpoint, page
+  by page, for the chosen date-range window(s), gender, and filter cohort. In the
+  `default` date-range mode the app picks the window(s) itself from the stage's date
+  range and today (see `app/windows.py`), scraping wider windows to backfill a finished
+  period. Every observed effort accumulates in a per-segment store (`data/segments/`),
+  so results captured earlier survive Strava collapsing its leaderboard; the protocol
+  then uses each rider's fastest effort whose date falls inside the stage's range.
 - **Matching** -- a leaderboard row is matched to a registration by the Strava link
   in its `additional_info` first, then by a swap-tolerant name key. Riders who match
   no registration go into a configurable "not registered" group.
@@ -58,8 +64,10 @@ token), and configure the stages and the cup, then generate.
   one, copying its settings. **Delete stage** removes the current tab.
 - The config is saved on **Save config** and on close. Each save also writes a
   timestamped version to `temp/` with the Strava password redacted.
-- Every generation archives the raw scraped data (a JSON snapshot in `temp/`), so a
-  protocol can be regenerated later even if Strava stops serving that day's efforts.
+- Each segment's accumulated efforts live in `data/segments/<id>.json`, and every
+  scrape is snapshotted under a per-segment backup tree in `temp/segments/<id>/`, so a
+  rider missing at generation time can be traced back to exactly what Strava served and
+  when. A frozen stage reads its store without scraping at all.
 
 ## Tests and pre-commit
 
