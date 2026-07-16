@@ -31,8 +31,13 @@ class DateRange(StrEnum):
     each rider's best-ever effort, so a rider who rode today but was faster before never
     appears with today's time. Asking Strava for ``today`` (or the week/month/year)
     returns the efforts from that window instead. ``ALL_TIME`` omits the param.
+
+    ``DEFAULT`` is not sent to Strava: it tells the app to pick the window(s) itself
+    from the stage's date range and today's date (see ``app.windows``), scraping wider
+    windows to backfill an already-finished period.
     """
 
+    DEFAULT = "default"
     TODAY = "today"
     THIS_WEEK = "this_week"
     THIS_MONTH = "this_month"
