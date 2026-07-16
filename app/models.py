@@ -143,7 +143,10 @@ class RaceInfo:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> RaceInfo:
+    def from_dict(cls, data: dict[str, Any] | None) -> RaceInfo:
+        # Tolerate a missing or ``null`` block in a hand-edited config, like the rest of
+        # the config loaders: fall back to defaults rather than raising.
+        data = data or {}
         defaults = cls()
         return cls(
             **{key: data.get(key, getattr(defaults, key)) for key in defaults.to_dict()}

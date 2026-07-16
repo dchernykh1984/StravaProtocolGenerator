@@ -116,6 +116,11 @@ def test_bad_segment_filters_fall_back_to_defaults() -> None:
     assert seg.filter_type is FilterType.ALL
 
 
+def test_stage_tolerates_null_race_info_block() -> None:
+    stage = StageConfig.from_dict({"name": "D", "race_info": None})
+    assert stage.race_info == RaceInfo()
+
+
 def test_segment_defaults_to_today_overall_all() -> None:
     seg = SegmentConfig()
     assert (seg.date_range, seg.gender, seg.filter_type) == (

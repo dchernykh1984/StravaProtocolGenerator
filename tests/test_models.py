@@ -17,6 +17,9 @@ def test_race_info_roundtrips_and_defaults_missing_keys() -> None:
     assert restored.weather == "Sunny"
     assert restored.weather_label == "Weather"
     assert restored == RaceInfo(weather="Sunny")
+    # A missing or ``null`` block (hand-edited config) falls back to defaults.
+    assert RaceInfo.from_dict(None) == RaceInfo()
+    assert RaceInfo.from_dict({}) == RaceInfo()
 
 
 def test_leaderboard_row_from_scrape_parses_result_and_strips() -> None:
