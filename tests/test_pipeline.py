@@ -378,6 +378,26 @@ def test_store_accumulates_across_runs_and_recovers_the_in_window_effort() -> No
     assert "4:00" not in stage_abs  # the out-of-window PR is filtered out
 
 
+def test_segment_cohorts_do_not_share_a_store() -> None:
+    from app.config import Gender
+
+    overall = SegmentConfig("seg1")  # gender overall -> bare id key
+    women = SegmentConfig("seg1", gender=Gender.WOMEN)  # different cohort -> own key
+    cfg = _config()
+    cfg.stages[0].segments = [overall, women]
+    storage = _FakeStorage()
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
+    generate(
+        cfg,
+        browser,
+        _FakeClient(_roster()),
+        writer=_capture_writer({}),
+        storage=storage,
+    )
+    # The two cohorts landed in separate stores, not one shared by segment id.
+    assert set(storage.stores) == {"seg1", "seg1_F_all"}
+
+
 def test_empty_scrape_does_not_commit_or_archive() -> None:
     cfg = _config()
     storage = _FakeStorage()
