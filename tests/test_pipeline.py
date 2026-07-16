@@ -285,6 +285,32 @@ def test_generate_shows_year_team_city_from_registration() -> None:
     assert "1984" in stage_abs and "UBT" in stage_abs and "Almaty" in stage_abs
 
 
+def test_absolute_protocol_clusters_equal_results_by_group() -> None:
+    def _p(pid: int, name: str, cat: str) -> Participant:
+        return Participant(
+            id=pid,
+            first_name=name,
+            last_name="",
+            participant_names=name,
+            category_id=1,
+            category_name=cat,
+            additional_info="",
+        )
+
+    # Registration order A, B, A -> no results -> absolute clusters by group (A, A, B).
+    roster = ParticipantsResponse(
+        competition_id=1,
+        categories=[Category(id=1, name="A"), Category(id=2, name="B")],
+        participants=[_p(1, "Aaa", "A"), _p(2, "Bbb", "B"), _p(3, "Ccc", "A")],
+    )
+    browser = _FakeLeaderboard({})  # nobody has a result
+    written: dict[str, str] = {}
+    generate(_config(), browser, _FakeClient(roster), writer=_capture_writer(written))
+    stage_abs = next(c for p, c in written.items() if "Day_1_absolute" in p)
+    # Aaa, Ccc (group A, registration order), then Bbb (group B) -- not interleaved.
+    assert stage_abs.index("Aaa") < stage_abs.index("Ccc") < stage_abs.index("Bbb")
+
+
 def test_absolute_protocol_shows_group_column_but_group_does_not() -> None:
     cfg = _config()
     cfg.stages[0].group_label = "Group"
