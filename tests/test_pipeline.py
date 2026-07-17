@@ -156,29 +156,17 @@ def test_generate_writes_all_four_protocols() -> None:
 
 
 def test_generate_warns_on_duplicate_strava_id() -> None:
-    roster = ParticipantsResponse(
-        competition_id=250,
-        categories=[Category(id=1, name="3.5+")],
-        participants=[
-            Participant(
-                id=1,
-                first_name="Ivan",
-                last_name="Petrov",
-                participant_names="Ivan Petrov",
-                category_id=1,
-                category_name="3.5+",
-                additional_info="athletes/111",
-            ),
-            Participant(
-                id=2,
-                first_name="Ivan",
-                last_name="P",
-                participant_names="Ivan P",
-                category_id=1,
-                category_name="3.5+",
-                additional_info="athletes/111",
-            ),
-        ],
+    roster = _roster()  # one rider on athletes/111
+    roster.participants.append(
+        Participant(
+            id=2,
+            first_name="Ivan",
+            last_name="P",
+            participant_names="Ivan P",
+            category_id=1,
+            category_name="3.5+",
+            additional_info="athletes/111",  # same Strava id -> a duplicate sign-up
+        )
     )
     browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
     result = generate(_config(), browser, _FakeClient(roster), writer=lambda p, c: None)
