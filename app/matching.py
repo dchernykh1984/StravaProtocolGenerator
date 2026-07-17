@@ -34,17 +34,19 @@ def duplicate_strava_id_warnings(participants: list[Participant]) -> list[str]:
 
     ``ParticipantIndex.build`` keeps only the first registration per id, so a duplicate
     is otherwise dropped silently. Each returned line names the shared id and every
-    registration under it, so the referee can fix the roster.
+    registration under it -- with its registration id, so a repeat sign-up under the
+    same name is still distinguishable -- so the referee can fix the roster.
     """
-    by_id: dict[str, list[str]] = {}
+    by_id: dict[str, list[Participant]] = {}
     for participant in participants:
         strava_id = extract_strava_id(participant.additional_info)
         if strava_id:
-            by_id.setdefault(strava_id, []).append(participant.display_name)
+            by_id.setdefault(strava_id, []).append(participant)
     return [
-        f"duplicate Strava id {strava_id}: " + ", ".join(f'"{name}"' for name in names)
-        for strava_id, names in by_id.items()
-        if len(names) > 1
+        f"duplicate Strava id {strava_id}: "
+        + ", ".join(f'"{p.display_name}" (reg #{p.id})' for p in people)
+        for strava_id, people in by_id.items()
+        if len(people) > 1
     ]
 
 
