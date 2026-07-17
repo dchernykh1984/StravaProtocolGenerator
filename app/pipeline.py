@@ -33,7 +33,7 @@ from app.html_render import (
     render_cup_protocol,
     render_stage_protocol,
 )
-from app.matching import match_rows_to_participants
+from app.matching import duplicate_strava_id_warnings, match_rows_to_participants
 from app.models import LeaderboardRow, Participant
 from app.scoring import (
     CupEntry,
@@ -593,6 +593,7 @@ def generate(
         result.errors.append(f"roster fetch failed: {exc}")
 
     _resolve_links(participants, link_resolver, reload_links)
+    result.errors.extend(duplicate_strava_id_warnings(participants))
     storage = storage or _MemoryStorage()
     when = today or date.today()
     stages_rows: list[list[list[LeaderboardRow]]] = [
