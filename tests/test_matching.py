@@ -44,7 +44,9 @@ def test_duplicate_strava_id_warns_with_both_names() -> None:
         _participant(3, "Solo Rider", "athletes/999"),
     ]
     warnings = duplicate_strava_id_warnings(people)
-    assert warnings == ['duplicate Strava id 12345: "Ivan Petrov", "Ivan P"']
+    assert warnings == [
+        'duplicate Strava id 12345: "Ivan Petrov" (reg #1), "Ivan P" (reg #2)'
+    ]
 
 
 def test_duplicate_strava_id_ignores_unlinked_and_unique() -> None:
