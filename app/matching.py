@@ -29,6 +29,25 @@ def extract_strava_id(text: str) -> str | None:
     return match.group(1) if match else None
 
 
+def duplicate_strava_id_warnings(participants: list[Participant]) -> list[str]:
+    """Flag registrations that share a Strava athlete id (usually a double sign-up).
+
+    ``ParticipantIndex.build`` keeps only the first registration per id, so a duplicate
+    is otherwise dropped silently. Each returned line names the shared id and every
+    registration under it, so the referee can fix the roster.
+    """
+    by_id: dict[str, list[str]] = {}
+    for participant in participants:
+        strava_id = extract_strava_id(participant.additional_info)
+        if strava_id:
+            by_id.setdefault(strava_id, []).append(participant.display_name)
+    return [
+        f"duplicate Strava id {strava_id}: " + ", ".join(f'"{name}"' for name in names)
+        for strava_id, names in by_id.items()
+        if len(names) > 1
+    ]
+
+
 def name_match_key(name: str) -> str:
     """Order-independent name key: lowercased word tokens, sorted and space-joined.
 

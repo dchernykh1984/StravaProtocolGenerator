@@ -2,6 +2,7 @@
 
 from app.matching import (
     ParticipantIndex,
+    duplicate_strava_id_warnings,
     extract_strava_id,
     match_rows_to_participants,
     name_match_key,
@@ -34,6 +35,25 @@ def test_extract_strava_id_from_url() -> None:
     assert extract_strava_id("see athletes/999 profile") == "999"
     assert extract_strava_id("no link here") is None
     assert extract_strava_id("") is None
+
+
+def test_duplicate_strava_id_warns_with_both_names() -> None:
+    people = [
+        _participant(1, "Ivan Petrov", "athletes/12345"),
+        _participant(2, "Ivan P", "athletes/12345"),
+        _participant(3, "Solo Rider", "athletes/999"),
+    ]
+    warnings = duplicate_strava_id_warnings(people)
+    assert warnings == ['duplicate Strava id 12345: "Ivan Petrov", "Ivan P"']
+
+
+def test_duplicate_strava_id_ignores_unlinked_and_unique() -> None:
+    people = [
+        _participant(1, "No Link", ""),
+        _participant(2, "Also No Link", "just a note"),
+        _participant(3, "Linked Once", "athletes/42"),
+    ]
+    assert duplicate_strava_id_warnings(people) == []
 
 
 def test_name_match_key_is_swap_invariant() -> None:
