@@ -58,3 +58,14 @@ def test_format_time_clamps_decimals() -> None:
 
 def test_parse_then_format_roundtrips() -> None:
     assert format_time(parse_time("1:05:23"), 0) == "1:05:23"
+
+
+def test_format_time_force_hours_keeps_the_column_uniform() -> None:
+    # Below an hour, force_hours still shows the (zero) hour field so a result column
+    # does not mix "53:39" with "1:08:37".
+    assert format_time(3219.0, force_hours=True) == "0:53:39"
+    assert format_time(4117.0, force_hours=True) == "1:08:37"  # already past an hour
+    assert format_time(40.0, force_hours=True) == "0:00:40"
+    assert format_time(3219.5, 1, force_hours=True) == "0:53:39.5"
+    # The default (used for gaps) stays compact.
+    assert format_time(3219.0) == "53:39"

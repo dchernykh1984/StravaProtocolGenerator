@@ -37,12 +37,16 @@ def parse_time(text: str) -> float | None:
     return total
 
 
-def format_time(seconds: float | None, decimals: int = 0) -> str:
+def format_time(
+    seconds: float | None, decimals: int = 0, force_hours: bool = False
+) -> str:
     """Format seconds as ``H:MM:SS`` / ``M:SS`` with ``decimals`` fractional digits.
 
     ``None`` and negative values render as an empty string (a missing or invalid time).
     ``decimals`` is clamped to ``[0, 4]`` to match the generator's cap. The hour field
-    is shown only once the time reaches an hour, so short segment times stay compact.
+    is shown once the time reaches an hour; ``force_hours`` shows it even below an hour
+    (``0:53:39``), so a result column stays uniform when some riders pass the hour while
+    others do not. Gaps leave it off, so a small gap stays compact.
     """
     if seconds is None or seconds < 0:
         return ""
@@ -53,7 +57,10 @@ def format_time(seconds: float | None, decimals: int = 0) -> str:
     whole = total // factor
     hours, rem = divmod(whole, 3600)
     minutes, secs = divmod(rem, 60)
-    body = f"{hours}:{minutes:02d}:{secs:02d}" if hours else f"{minutes}:{secs:02d}"
+    if hours or force_hours:
+        body = f"{hours}:{minutes:02d}:{secs:02d}"
+    else:
+        body = f"{minutes}:{secs:02d}"
     if decimals > 0:
         body += "." + str(frac).zfill(decimals)
     return body
