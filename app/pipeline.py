@@ -33,6 +33,7 @@ from app.html_render import (
     render_cup_protocol,
     render_stage_protocol,
     stat_labels,
+    stat_units,
 )
 from app.matching import duplicate_strava_id_warnings, match_rows_to_participants
 from app.models import LeaderboardRow, Participant
@@ -301,6 +302,7 @@ def _render_stage_outputs(
     client: SiteClient | None,
 ) -> list[ProtocolOutput]:
     speed_label, hr_label, power_label = stat_labels(config.strava_statistics_language)
+    speed_unit, hr_unit, power_unit = stat_units(config.strava_statistics_language)
     columns = StageColumns(
         place_label=stage.place_label,
         name_label=stage.name_label,
@@ -321,6 +323,9 @@ def _render_stage_outputs(
         speed_label=speed_label,
         hr_label=hr_label,
         power_label=power_label,
+        speed_unit=speed_unit,
+        hr_unit=hr_unit,
+        power_unit=power_unit,
     )
     generic: list[StageEntry | CupEntry] = list(entries)
     abs_html = render_stage_protocol(

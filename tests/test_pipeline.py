@@ -594,9 +594,10 @@ def test_default_date_range_scrapes_multiple_windows() -> None:
 
 
 def test_group_protocol_includes_statistics_only_when_enabled() -> None:
-    from app.html_render import stat_labels
+    from app.html_render import stat_labels, stat_units
 
     speed, hr, power = stat_labels("ru")
+    speed_u, hr_u, power_u = stat_units("ru")
     row = _row("111", "Ivan Petrov", "5:00")
     row.avg_speed = 11.57
     row.avg_hr = 171.6
@@ -611,9 +612,11 @@ def test_group_protocol_includes_statistics_only_when_enabled() -> None:
     )
     stage_grp = next(c for p, c in written.items() if "Day_1_group" in p)
     stage_abs = next(c for p, c in written.items() if "Day_1_absolute" in p)
-    assert speed in stage_grp and "41.7 km/h" in stage_grp
-    assert hr in stage_grp and "172 bpm" in stage_grp
-    assert power in stage_grp and "276 W" in stage_grp
+    # Headers and units are both localized (Russian here), not the English defaults.
+    assert speed in stage_grp and f"41.7 {speed_u}" in stage_grp
+    assert hr in stage_grp and f"172 {hr_u}" in stage_grp
+    assert power in stage_grp and f"276 {power_u}" in stage_grp
+    assert "41.7 km/h" not in stage_grp  # English unit replaced by the localized one
     # Per-effort stats never go on the absolute protocol.
     assert speed not in stage_abs
 
