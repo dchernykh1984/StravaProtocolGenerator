@@ -109,6 +109,10 @@ class StageColumns(PersonColumns):
     show_gap: bool = False
     gap_label: str = "(gap)"
     show_links: bool = False
+    show_stats: bool = False
+    speed_label: str = "Speed"
+    hr_label: str = "HR"
+    power_label: str = "Power"
 
 
 @dataclass
@@ -129,6 +133,29 @@ class CupColumns(PersonColumns):
     show_stage_count: bool = False
     stage_count_label: str = "(stages)"
     show_links: bool = False
+
+
+# Localized headers for the optional Strava stat columns (speed, HR, power). Units stay
+# universal (km/h, bpm, W) in the cells. ru/kk use \u escapes to keep the source ASCII
+# (the no-non-ascii hook); ASCII transliterations follow each value.
+_STAT_LABELS: dict[str, tuple[str, str, str]] = {
+    "ru": (
+        "\u0421\u043a\u043e\u0440\u043e\u0441\u0442\u044c",  # Skorost (Speed)
+        "\u041f\u0443\u043b\u044c\u0441",  # Puls (HR)
+        "\u041c\u043e\u0449\u043d\u043e\u0441\u0442\u044c",  # Moshchnost (Power)
+    ),
+    "kk": (
+        "\u0416\u044b\u043b\u0434\u0430\u043c\u0434\u044b\u049b",  # Zhyldamdyk (Speed)
+        "\u041f\u0443\u043b\u044c\u0441",  # Puls (HR)
+        "\u049a\u0443\u0430\u0442",  # Quat (Power)
+    ),
+    "en": ("Speed", "HR", "Power"),
+}
+
+
+def stat_labels(language: str) -> tuple[str, str, str]:
+    """The (speed, HR, power) column headers for ``language`` (English if unknown)."""
+    return _STAT_LABELS.get(language, _STAT_LABELS["en"])
 
 
 def _place_text(place: int | None, disable_dnf: bool) -> str:
@@ -204,6 +231,60 @@ def _person_cells(competitor: Competitor, columns: PersonColumns) -> str:
         out += _cell(competitor.team)
     if columns.show_city:
         out += _cell(competitor.city)
+    return out
+
+
+def _speed_kmh(value: float | None) -> str:
+    """Strava's metres/second rendered as ``km/h`` (blank when absent)."""
+    return f"{value * 3.6:.1f} km/h" if value is not None else ""
+
+
+def _hr_text(value: float | None) -> str:
+    return f"{round(value)} bpm" if value is not None else ""
+
+
+def _watts_text(value: float | None) -> str:
+    return f"{round(value)} W" if value is not None else ""
+
+
+def _stat_presence(
+    groups: list[tuple[str, list[Ranked]]], columns: StageColumns
+) -> tuple[bool, bool, bool]:
+    """Which of (speed, HR, power) to show: enabled columns with any value present.
+
+    Computed once across all groups so every group table shows the same columns.
+    """
+    if not columns.show_stats:
+        return (False, False, False)
+    speed = hr = power = False
+    for _, ranked in groups:
+        for item in ranked:
+            entry = cast(StageEntry, item.entry)
+            speed = speed or entry.avg_speed is not None
+            hr = hr or entry.avg_hr is not None
+            power = power or entry.avg_watts is not None
+    return (speed, hr, power)
+
+
+def _stat_headers(columns: StageColumns, flags: tuple[bool, bool, bool]) -> str:
+    out = ""
+    if flags[0]:
+        out += _header_cell(columns.speed_label)
+    if flags[1]:
+        out += _header_cell(columns.hr_label)
+    if flags[2]:
+        out += _header_cell(columns.power_label)
+    return out
+
+
+def _stat_cells(entry: StageEntry, flags: tuple[bool, bool, bool]) -> str:
+    out = ""
+    if flags[0]:
+        out += _cell(_speed_kmh(entry.avg_speed))
+    if flags[1]:
+        out += _cell(_hr_text(entry.avg_hr))
+    if flags[2]:
+        out += _cell(_watts_text(entry.avg_watts))
     return out
 
 
@@ -357,6 +438,7 @@ def render_stage_protocol(
     info = race_info or RaceInfo()
     buf = StringIO()
     _open_document(buf, title, styles, info)
+    stat_flags = _stat_presence(groups, columns)
     for group_name, ranked in groups:
         _open_table(buf, group_name, styles, columns.group_label)
         buf.write(f'<tr style="{styles.top_line_style}">')
@@ -373,6 +455,7 @@ def render_stage_protocol(
             )
         else:
             buf.write(_header_cell(columns.result_label))
+        buf.write(_stat_headers(columns, stat_flags))
         buf.write("</tr>\n")
         leader = _first_value(ranked, lambda e: cast(StageEntry, e).value)
         group_cells = _group_column_cells(ranked) if show_group_column else []
@@ -392,6 +475,7 @@ def render_stage_protocol(
             result_url = entry.result_url if columns.show_links else ""
             gap = _gap_text(entry.value, leader, decimals) if columns.show_gap else ""
             buf.write(_value_cell(_link_inner(result, result_url), gap, styles))
+            buf.write(_stat_cells(entry, stat_flags))
             buf.write("</tr>\n")
         buf.write("</table>\n<BR>\n")
     _write_race_footer(buf, info)

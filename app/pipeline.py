@@ -10,7 +10,7 @@ build/render/publish core, so live and replayed runs produce identical protocols
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 from typing import Any, Protocol
@@ -32,6 +32,7 @@ from app.html_render import (
     load_template,
     render_cup_protocol,
     render_stage_protocol,
+    stat_labels,
 )
 from app.matching import duplicate_strava_id_warnings, match_rows_to_participants
 from app.models import LeaderboardRow, Participant
@@ -299,6 +300,7 @@ def _render_stage_outputs(
     writer: Writer,
     client: SiteClient | None,
 ) -> list[ProtocolOutput]:
+    speed_label, hr_label, power_label = stat_labels(config.strava_statistics_language)
     columns = StageColumns(
         place_label=stage.place_label,
         name_label=stage.name_label,
@@ -316,6 +318,9 @@ def _render_stage_outputs(
         show_gap=stage.show_gap,
         gap_label=stage.gap_label,
         show_links=config.show_strava_links,
+        speed_label=speed_label,
+        hr_label=hr_label,
+        power_label=power_label,
     )
     generic: list[StageEntry | CupEntry] = list(entries)
     abs_html = render_stage_protocol(
@@ -327,13 +332,15 @@ def _render_stage_outputs(
         stage.race_info,
         show_group_column=stage.show_group,
     )
+    # Strava stats are per-effort, so they go only on the per-stage group protocol,
+    # not the absolute one or the cup (whose totals combine several efforts).
     grp_html = render_stage_protocol(
         stage.name,
         _group_and_rank(
             generic, categories, stage.unregistered_group_name, stage.show_unregistered
         ),
         styles,
-        columns,
+        replace(columns, show_stats=config.show_strava_statistics),
         config.decimals,
         stage.race_info,
     )

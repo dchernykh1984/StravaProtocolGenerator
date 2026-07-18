@@ -60,6 +60,10 @@ class StageEntry:
     segment_values: list[float | None]
     value: float | None
     result_url: str = ""
+    # Per-effort Strava stats (from the matched leaderboard row), when present.
+    avg_speed: float | None = None  # metres/second
+    avg_hr: float | None = None  # beats per minute
+    avg_watts: float | None = None  # watts
 
 
 @dataclass
@@ -108,6 +112,22 @@ def _result_url(rows: list[LeaderboardRow | None]) -> str:
     return ""
 
 
+def _stats(
+    rows: list[LeaderboardRow | None],
+) -> tuple[float | None, float | None, float | None]:
+    """The rider's avg speed / HR / power for the stage: the first available across the
+    segment rows, each metric independently (some efforts record no HR or no power)."""
+
+    def first(attr: str) -> float | None:
+        for row in rows:
+            value = getattr(row, attr) if row is not None else None
+            if value is not None:
+                return value
+        return None
+
+    return first("avg_speed"), first("avg_hr"), first("avg_watts")
+
+
 def build_stage_entries(
     segment_matches: list[MatchResult],
     participants: list[Participant],
@@ -127,6 +147,7 @@ def build_stage_entries(
         seg_rows = [m.results.get(participant.id) for m in segment_matches]
         seg_values = [row.result_seconds if row else None for row in seg_rows]
         matched = [row for row in seg_rows if row is not None]
+        avg_speed, avg_hr, avg_watts = _stats(seg_rows)
         entries.append(
             StageEntry(
                 competitor=Competitor(
@@ -142,6 +163,9 @@ def build_stage_entries(
                 segment_values=seg_values,
                 value=combine_times(seg_values),
                 result_url=_result_url(seg_rows),
+                avg_speed=avg_speed,
+                avg_hr=avg_hr,
+                avg_watts=avg_watts,
             )
         )
 
@@ -160,6 +184,7 @@ def build_stage_entries(
         seg_rows = [per_segment[aid].get(i) for i in range(n)]
         seg_values = [row.result_seconds if row else None for row in seg_rows]
         matched = [row for row in seg_rows if row is not None]
+        avg_speed, avg_hr, avg_watts = _stats(seg_rows)
         entries.append(
             StageEntry(
                 competitor=Competitor(
@@ -172,6 +197,9 @@ def build_stage_entries(
                 segment_values=seg_values,
                 value=combine_times(seg_values),
                 result_url=_result_url(seg_rows),
+                avg_speed=avg_speed,
+                avg_hr=avg_hr,
+                avg_watts=avg_watts,
             )
         )
     return entries

@@ -9,6 +9,7 @@ from app.html_render import (
     load_template,
     render_cup_protocol,
     render_stage_protocol,
+    stat_labels,
 )
 from app.models import RaceInfo
 from app.scoring import Competitor, CupEntry, Ranked, StageEntry
@@ -421,3 +422,66 @@ def test_cup_protocol_renders_race_info() -> None:
     )
     assert "4 July 2026, Almaty" in html
     assert "Organizer: UBT" in html
+
+
+def test_group_protocol_shows_localized_stat_columns() -> None:
+    speed, hr, power = stat_labels("ru")
+    entry = StageEntry(
+        Competitor("p:1", "Ivan", "A", True),
+        [300.0],
+        300.0,
+        avg_speed=11.57,
+        avg_hr=171.6,
+        avg_watts=275.5,
+    )
+    cols = StageColumns(
+        show_stats=True, speed_label=speed, hr_label=hr, power_label=power
+    )
+    out = render_stage_protocol("T", [("A", [Ranked(1, entry)])], columns=cols)
+    assert speed in out and "41.7 km/h" in out
+    assert hr in out and "172 bpm" in out
+    assert power in out and "276 W" in out
+
+
+def test_group_protocol_hides_stats_when_disabled() -> None:
+    entry = StageEntry(
+        Competitor("p:1", "Ivan", "A", True), [300.0], 300.0, avg_speed=11.57
+    )
+    out = render_stage_protocol(
+        "T",
+        [("A", [Ranked(1, entry)])],
+        columns=StageColumns(show_stats=False, speed_label=stat_labels("ru")[0]),
+    )
+    assert stat_labels("ru")[0] not in out and "km/h" not in out
+
+
+def test_stat_column_omitted_when_no_rider_has_it() -> None:
+    entry = StageEntry(
+        Competitor("p:1", "Ivan", "A", True), [300.0], 300.0, avg_watts=200.0
+    )
+    cols = StageColumns(
+        show_stats=True, speed_label="SPD", hr_label="PULSE", power_label="PWR"
+    )
+    out = render_stage_protocol("T", [("A", [Ranked(1, entry)])], columns=cols)
+    assert "SPD" not in out and "PULSE" not in out
+    assert "PWR" in out and "200 W" in out
+
+
+def test_missing_stat_cell_is_blank_not_a_crash() -> None:
+    a = StageEntry(Competitor("p:1", "A", "G", True), [300.0], 300.0, avg_hr=160.0)
+    b = StageEntry(Competitor("p:2", "B", "G", True), [310.0], 310.0)
+    out = render_stage_protocol(
+        "T",
+        [("G", [Ranked(1, a), Ranked(2, b)])],
+        columns=StageColumns(show_stats=True, hr_label="PULSE"),
+    )
+    assert "PULSE" in out and "160 bpm" in out
+
+
+def test_stat_labels_by_language() -> None:
+    assert stat_labels("en") == ("Speed", "HR", "Power")
+    assert stat_labels("de") == ("Speed", "HR", "Power")  # unknown -> English
+    for lang in ("ru", "kk"):
+        labels = stat_labels(lang)
+        assert len(labels) == 3 and all(labels)
+        assert labels != stat_labels("en")  # localized, not English
