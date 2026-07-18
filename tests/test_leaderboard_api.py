@@ -157,3 +157,40 @@ def test_connection_error_raises_scrape_error() -> None:
     board = StravaLeaderboard([], opener=_Opener(urllib.error.URLError("down")))
     with pytest.raises(StravaScrapeError, match="Connection"):
         board.page("1", 1)
+
+
+def test_row_parses_effort_statistics() -> None:
+    from app.leaderboard_api import _row
+
+    row = _row(
+        {
+            "displayName": "X",
+            "athleteId": 1,
+            "activityId": 2,
+            "elapsedTime": 300,
+            "avgSpeed": 11.57,
+            "avgHr": 171.6,
+            "avgWatts": 275.5,
+        }
+    )
+    assert row.avg_speed == 11.57
+    assert row.avg_hr == 171.6
+    assert row.avg_watts == 275.5
+
+
+def test_row_missing_or_null_statistics_are_none() -> None:
+    from app.leaderboard_api import _row
+
+    row = _row({"displayName": "X", "athleteId": 1, "elapsedTime": 300, "avgHr": None})
+    assert row.avg_speed is None
+    assert row.avg_hr is None
+    assert row.avg_watts is None
+
+
+def test_opt_float_coerces_and_rejects_bad_values() -> None:
+    from app.leaderboard_api import _opt_float
+
+    assert _opt_float(None) is None
+    assert _opt_float("nope") is None
+    assert _opt_float("3.5") == 3.5
+    assert _opt_float(4) == 4.0

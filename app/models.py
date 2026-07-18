@@ -26,6 +26,10 @@ class LeaderboardRow:
     date: str = ""
     attempt_url: str = ""
     athlete_url: str = ""
+    # Optional per-effort leaderboard stats (absent for many riders / old snapshots).
+    avg_speed: float | None = None  # metres/second (Strava's unit); rendered as km/h
+    avg_hr: float | None = None  # beats per minute
+    avg_watts: float | None = None  # watts
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -37,6 +41,9 @@ class LeaderboardRow:
             "date": self.date,
             "attempt_url": self.attempt_url,
             "athlete_url": self.athlete_url,
+            "avg_speed": self.avg_speed,
+            "avg_hr": self.avg_hr,
+            "avg_watts": self.avg_watts,
         }
 
     @classmethod
@@ -50,6 +57,9 @@ class LeaderboardRow:
             date=data.get("date", ""),
             attempt_url=data.get("attempt_url", ""),
             athlete_url=data.get("athlete_url", ""),
+            avg_speed=data.get("avg_speed"),
+            avg_hr=data.get("avg_hr"),
+            avg_watts=data.get("avg_watts"),
         )
 
     @classmethod
@@ -63,6 +73,9 @@ class LeaderboardRow:
         date: str = "",
         attempt_url: str = "",
         athlete_url: str = "",
+        avg_speed: float | None = None,
+        avg_hr: float | None = None,
+        avg_watts: float | None = None,
     ) -> LeaderboardRow:
         """Build a row from scraped cells, parsing the result string to seconds."""
         return cls(
@@ -74,6 +87,9 @@ class LeaderboardRow:
             date=date.strip(),
             attempt_url=attempt_url.strip(),
             athlete_url=athlete_url.strip(),
+            avg_speed=avg_speed,
+            avg_hr=avg_hr,
+            avg_watts=avg_watts,
         )
 
 

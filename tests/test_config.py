@@ -181,3 +181,10 @@ def test_roster_token_effective_prefers_explicit_then_cup() -> None:
 def test_from_dict_empty_stages_gets_one_default() -> None:
     cfg = AppConfig.from_dict({"stages": []})
     assert len(cfg.stages) == 1
+
+
+def test_strava_statistics_settings_roundtrip() -> None:
+    cfg = AppConfig(show_strava_statistics=True, strava_statistics_language="kk")
+    restored = AppConfig.from_dict(cfg.to_dict())
+    assert restored.show_strava_statistics is True
+    assert restored.strava_statistics_language == "kk"

@@ -788,10 +788,20 @@ class MainWindow(QMainWindow):
         self._decimals = QSpinBox()
         self._decimals.setRange(0, 4)
         self._show_strava_links = QCheckBox("Add Strava links")
+        self._show_strava_statistics = QCheckBox("Add Strava statistics")
+        self._strava_stats_language = QComboBox()
+        for label, code in (("Russian", "ru"), ("Kazakh", "kk"), ("English", "en")):
+            self._strava_stats_language.addItem(label, code)
+        strava_row = QHBoxLayout()
+        strava_row.addWidget(self._show_strava_links)
+        strava_row.addWidget(self._show_strava_statistics)
+        strava_row.addWidget(QLabel("Statistics language"))
+        strava_row.addWidget(self._strava_stats_language)
+        strava_row.addStretch(1)
         self._globals_layout.addRow("Site URL", widgets["site_url"])
         self._globals_layout.addRow("Registration list token", widgets["roster_token"])
         self._globals_layout.addRow("Decimals", self._decimals)
-        self._globals_layout.addRow("", self._show_strava_links)
+        self._globals_layout.addRow("", strava_row)
         self._globals_layout.addRow("Template file", self._template_file)
         self._globals_layout.addRow("Output dir", widgets["output_dir"])
         return widgets
@@ -846,6 +856,9 @@ class MainWindow(QMainWindow):
             roster_token=self._globals["roster_token"].text().strip(),
             decimals=self._decimals.value(),
             show_strava_links=self._show_strava_links.isChecked(),
+            show_strava_statistics=self._show_strava_statistics.isChecked(),
+            strava_statistics_language=self._strava_stats_language.currentData()
+            or "ru",
             log_to_file=self._log_to_file.isChecked(),
             auto_refresh=self._auto_refresh.isChecked(),
             refresh_interval=self._interval.value(),
@@ -861,6 +874,13 @@ class MainWindow(QMainWindow):
         self._globals["roster_token"].setText(config.roster_token)
         self._decimals.setValue(config.decimals)
         self._show_strava_links.setChecked(config.show_strava_links)
+        self._show_strava_statistics.setChecked(config.show_strava_statistics)
+        lang_index = self._strava_stats_language.findData(
+            config.strava_statistics_language
+        )
+        self._strava_stats_language.setCurrentIndex(
+            lang_index if lang_index >= 0 else 0
+        )
         self._log_to_file.setChecked(config.log_to_file)
         self._interval.setValue(config.refresh_interval)
         self._auto_refresh.setChecked(config.auto_refresh)

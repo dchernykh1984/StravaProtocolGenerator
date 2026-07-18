@@ -353,6 +353,8 @@ class AppConfig:
     roster_token: str = ""
     decimals: int = 0
     show_strava_links: bool = False
+    show_strava_statistics: bool = False
+    strava_statistics_language: str = "ru"
     log_to_file: bool = False
     auto_refresh: bool = False
     refresh_interval: int = 30
@@ -372,6 +374,8 @@ class AppConfig:
             "roster_token": self.roster_token,
             "decimals": self.decimals,
             "show_strava_links": self.show_strava_links,
+            "show_strava_statistics": self.show_strava_statistics,
+            "strava_statistics_language": self.strava_statistics_language,
             "log_to_file": self.log_to_file,
             "auto_refresh": self.auto_refresh,
             "refresh_interval": self.refresh_interval,
@@ -393,6 +397,8 @@ class AppConfig:
             roster_token=d("roster_token"),
             decimals=d("decimals"),
             show_strava_links=d("show_strava_links"),
+            show_strava_statistics=d("show_strava_statistics"),
+            strava_statistics_language=d("strava_statistics_language"),
             log_to_file=d("log_to_file"),
             auto_refresh=d("auto_refresh"),
             refresh_interval=d("refresh_interval"),

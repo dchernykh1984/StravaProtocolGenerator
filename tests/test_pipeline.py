@@ -591,3 +591,42 @@ def test_default_date_range_scrapes_multiple_windows() -> None:
     )
     ranges = [r for r, _, _ in browser.filters]
     assert "today" in ranges and "this_week" in ranges  # several windows scraped
+
+
+def test_group_protocol_includes_statistics_only_when_enabled() -> None:
+    from app.html_render import stat_labels
+
+    speed, hr, power = stat_labels("ru")
+    row = _row("111", "Ivan Petrov", "5:00")
+    row.avg_speed = 11.57
+    row.avg_hr = 171.6
+    row.avg_watts = 275.5
+    client = _FakeClient(_roster())
+    config = _config()
+    config.show_strava_statistics = True
+    config.strava_statistics_language = "ru"
+    written: dict[str, str] = {}
+    generate(
+        config, _FakeLeaderboard({"seg1": row}), client, writer=_capture_writer(written)
+    )
+    stage_grp = next(c for p, c in written.items() if "Day_1_group" in p)
+    stage_abs = next(c for p, c in written.items() if "Day_1_absolute" in p)
+    assert speed in stage_grp and "41.7 km/h" in stage_grp
+    assert hr in stage_grp and "172 bpm" in stage_grp
+    assert power in stage_grp and "276 W" in stage_grp
+    # Per-effort stats never go on the absolute protocol.
+    assert speed not in stage_abs
+
+
+def test_group_protocol_omits_statistics_when_disabled() -> None:
+    row = _row("111", "Ivan Petrov", "5:00")
+    row.avg_speed = 11.57
+    written: dict[str, str] = {}
+    generate(
+        _config(),
+        _FakeLeaderboard({"seg1": row}),
+        _FakeClient(_roster()),
+        writer=_capture_writer(written),
+    )
+    stage_grp = next(c for p, c in written.items() if "Day_1_group" in p)
+    assert "km/h" not in stage_grp

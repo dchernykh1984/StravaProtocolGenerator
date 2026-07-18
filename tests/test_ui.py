@@ -580,3 +580,20 @@ def test_close_declined_ignores_and_does_not_save(
     window.closeEvent(event)
     assert not saved
     assert not event.isAccepted()
+
+
+def test_strava_statistics_controls_roundtrip() -> None:
+    window = mw.MainWindow()
+    window.apply_config(
+        AppConfig(
+            show_strava_statistics=True,
+            strava_statistics_language="kk",
+            stages=[StageConfig(name="A")],
+            cup=CupConfig(),
+        )
+    )
+    assert window._show_strava_statistics.isChecked() is True
+    assert window._strava_stats_language.currentData() == "kk"
+    collected = window.collect_config()
+    assert collected.show_strava_statistics is True
+    assert collected.strava_statistics_language == "kk"

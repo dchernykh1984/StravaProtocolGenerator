@@ -42,6 +42,16 @@ def cookie_header(cookies: list[dict[str, Any]]) -> str:
     return "; ".join(f"{c['name']}={c['value']}" for c in cookies if c.get("name"))
 
 
+def _opt_float(value: Any) -> float | None:
+    """Coerce a JSON number to ``float``, mapping ``null`` / non-numeric to ``None``."""
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except TypeError, ValueError:
+        return None
+
+
 def _row(entry: dict[str, Any]) -> LeaderboardRow:
     """Map one JSON leaderboard entry onto a ``LeaderboardRow``."""
     athlete_id = str(entry.get("athleteIdStr") or entry.get("athleteId") or "")
@@ -56,6 +66,9 @@ def _row(entry: dict[str, Any]) -> LeaderboardRow:
         date=entry.get("startDateLocal", ""),
         attempt_url=f"{_BASE}/activities/{activity}" if activity else "",
         athlete_url=f"{_BASE}/athletes/{athlete_id}" if athlete_id else "",
+        avg_speed=_opt_float(entry.get("avgSpeed")),  # metres/second
+        avg_hr=_opt_float(entry.get("avgHr")),
+        avg_watts=_opt_float(entry.get("avgWatts")),
     )
 
 

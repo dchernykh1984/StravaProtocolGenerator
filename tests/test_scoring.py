@@ -215,3 +215,27 @@ def test_rank_entries_ties_and_unranked() -> None:
     ranked = rank_entries(entries)
     places = [(r.entry.competitor.name, r.place) for r in ranked]
     assert places == [("b", 1), ("c", 1), ("a", 3), ("d", None)]
+
+
+def test_stage_entry_carries_strava_statistics() -> None:
+    row = LeaderboardRow(
+        athlete_name="Ivan Petrov",
+        athlete_id="111",
+        raw_result="",
+        result_seconds=300.0,
+        avg_speed=11.57,
+        avg_hr=171.6,
+        avg_watts=275.5,
+    )
+    match = MatchResult(results={1: row})
+    entry = build_stage_entries([match], [_participant(1, "Ivan Petrov")])[0]
+    assert entry.avg_speed == 11.57
+    assert entry.avg_hr == 171.6
+    assert entry.avg_watts == 275.5
+
+
+def test_stage_entry_without_a_row_has_no_statistics() -> None:
+    entry = build_stage_entries([MatchResult()], [_participant(1, "Ivan Petrov")])[0]
+    assert entry.avg_speed is None
+    assert entry.avg_hr is None
+    assert entry.avg_watts is None
