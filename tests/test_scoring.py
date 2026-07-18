@@ -239,3 +239,35 @@ def test_stage_entry_without_a_row_has_no_statistics() -> None:
     assert entry.avg_speed is None
     assert entry.avg_hr is None
     assert entry.avg_watts is None
+
+
+def test_stage_stats_take_first_available_across_segments() -> None:
+    # Speed is recorded only in segment 1, HR/power only in segment 2; each metric is
+    # taken independently from the first segment that has it (an absent one is skipped).
+    seg1 = MatchResult(
+        results={
+            1: LeaderboardRow(
+                athlete_name="Ivan Petrov",
+                athlete_id="111",
+                raw_result="",
+                result_seconds=300.0,
+                avg_speed=11.57,
+            )
+        }
+    )
+    seg2 = MatchResult(
+        results={
+            1: LeaderboardRow(
+                athlete_name="Ivan Petrov",
+                athlete_id="111",
+                raw_result="",
+                result_seconds=305.0,
+                avg_hr=171.6,
+                avg_watts=275.5,
+            )
+        }
+    )
+    entry = build_stage_entries([seg1, seg2], [_participant(1, "Ivan Petrov")])[0]
+    assert entry.avg_speed == 11.57
+    assert entry.avg_hr == 171.6
+    assert entry.avg_watts == 275.5
