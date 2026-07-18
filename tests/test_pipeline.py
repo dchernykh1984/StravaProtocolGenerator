@@ -621,6 +621,31 @@ def test_group_protocol_includes_statistics_only_when_enabled() -> None:
     assert speed not in stage_abs
 
 
+def test_statistics_language_follows_config_not_the_default() -> None:
+    from app.html_render import stat_labels, stat_units
+
+    # "kk" is not the config default ("ru"), so this proves the pipeline reads the
+    # configured language rather than emitting the default one.
+    kk_speed = stat_labels("kk")[0]
+    kk_speed_unit = stat_units("kk")[0]
+    ru_speed = stat_labels("ru")[0]
+    row = _row("111", "Ivan Petrov", "5:00")
+    row.avg_speed = 11.57
+    config = _config()
+    config.show_strava_statistics = True
+    config.strava_statistics_language = "kk"
+    written: dict[str, str] = {}
+    generate(
+        config,
+        _FakeLeaderboard({"seg1": row}),
+        _FakeClient(_roster()),
+        writer=_capture_writer(written),
+    )
+    stage_grp = next(c for p, c in written.items() if "Day_1_group" in p)
+    assert kk_speed in stage_grp and f"41.7 {kk_speed_unit}" in stage_grp
+    assert ru_speed not in stage_grp  # the default language is not used
+
+
 def test_group_protocol_omits_statistics_when_disabled() -> None:
     row = _row("111", "Ivan Petrov", "5:00")
     row.avg_speed = 11.57
