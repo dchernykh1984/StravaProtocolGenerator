@@ -500,7 +500,7 @@ def render_stage_protocol(
             if show_group_column:
                 buf.write(_cell(group_cells[i]))
             buf.write(_person_cells(entry.competitor, columns))
-            result = format_time(entry.value, decimals)
+            result = format_time(entry.value, decimals, force_hours=True)
             result_url = entry.result_url if columns.show_links else ""
             gap = _gap_text(entry.value, leader, decimals) if columns.show_gap else ""
             buf.write(_value_cell(_link_inner(result, result_url), gap, styles))
@@ -618,7 +618,9 @@ def _write_cup_row(
         gap = _gap_text(value, leader, decimals) if columns.show_stage_gap else ""
         buf.write(
             _value_cell(
-                _link_inner(format_time(value, decimals), stage_url), gap, styles
+                _link_inner(format_time(value, decimals, force_hours=True), stage_url),
+                gap,
+                styles,
             )
         )
     total_gap = (
@@ -630,7 +632,7 @@ def _write_cup_row(
         count_extra = f'<FONT SIZE="3">({completed})</FONT>'
     buf.write(
         _value_cell(
-            html.escape(format_time(entry.total, decimals)),
+            html.escape(format_time(entry.total, decimals, force_hours=True)),
             total_gap,
             styles,
             count_extra,

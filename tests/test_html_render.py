@@ -52,6 +52,29 @@ def test_stage_protocol_omits_links_by_default() -> None:
     assert "<a href" not in render_stage_protocol("T", [(name, ranked)])
 
 
+def test_stage_result_forces_hour_field_while_gap_stays_compact() -> None:
+    leader = StageEntry(Competitor("p:1", "A", "G", True), [3219.0], 3219.0)  # 53:39
+    trailer = StageEntry(Competitor("p:2", "B", "G", True), [3259.0], 3259.0)  # +40s
+    out = render_stage_protocol(
+        "T",
+        [("G", [Ranked(1, leader), Ranked(2, trailer)])],
+        columns=StageColumns(show_gap=True),
+    )
+    # The result column is uniform H:MM:SS, even below an hour.
+    assert "0:53:39" in out and "0:54:19" in out
+    # ... but the gap behind the leader stays compact M:SS, not 0:00:40.
+    assert "(+0:40)" in out and "0:00:40" not in out
+
+
+def test_cup_stage_and_total_force_hour_field() -> None:
+    entry = CupEntry(Competitor("p:1", "Ivan", "G", True), [3219.0], 3219.0)  # 53:39
+    out = render_cup_protocol(
+        "T", [("G", [Ranked(1, entry)])], ["D1"], columns=CupColumns()
+    )
+    # Both the per-stage value and the total show the (zero) hour field.
+    assert out.count("0:53:39") == 2
+
+
 def test_cup_protocol_renders_stage_links_when_enabled() -> None:
     entry = CupEntry(
         Competitor("p:1", "Ivan", "A", True, athlete_url="https://strava.test/a/1"),
