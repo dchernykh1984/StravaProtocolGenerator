@@ -10,6 +10,7 @@ from app.html_render import (
     render_cup_protocol,
     render_stage_protocol,
     stat_labels,
+    stat_units,
 )
 from app.models import RaceInfo
 from app.scoring import Competitor, CupEntry, Ranked, StageEntry
@@ -426,6 +427,7 @@ def test_cup_protocol_renders_race_info() -> None:
 
 def test_group_protocol_shows_localized_stat_columns() -> None:
     speed, hr, power = stat_labels("ru")
+    speed_u, hr_u, power_u = stat_units("ru")
     entry = StageEntry(
         Competitor("p:1", "Ivan", "A", True),
         [300.0],
@@ -435,12 +437,20 @@ def test_group_protocol_shows_localized_stat_columns() -> None:
         avg_watts=275.5,
     )
     cols = StageColumns(
-        show_stats=True, speed_label=speed, hr_label=hr, power_label=power
+        show_stats=True,
+        speed_label=speed,
+        hr_label=hr,
+        power_label=power,
+        speed_unit=speed_u,
+        hr_unit=hr_u,
+        power_unit=power_u,
     )
     out = render_stage_protocol("T", [("A", [Ranked(1, entry)])], columns=cols)
-    assert speed in out and "41.7 km/h" in out
-    assert hr in out and "172 bpm" in out
-    assert power in out and "276 W" in out
+    # Both the header and the unit are localized.
+    assert speed in out and f"41.7 {speed_u}" in out
+    assert hr in out and f"172 {hr_u}" in out
+    assert power in out and f"276 {power_u}" in out
+    assert "km/h" not in out  # the English unit is replaced by the localized one
 
 
 def test_group_protocol_hides_stats_when_disabled() -> None:
@@ -485,3 +495,12 @@ def test_stat_labels_by_language() -> None:
         labels = stat_labels(lang)
         assert len(labels) == 3 and all(labels)
         assert labels != stat_labels("en")  # localized, not English
+
+
+def test_stat_units_by_language() -> None:
+    assert stat_units("en") == ("km/h", "bpm", "W")
+    assert stat_units("de") == ("km/h", "bpm", "W")  # unknown -> English
+    for lang in ("ru", "kk"):
+        units = stat_units(lang)
+        assert len(units) == 3 and all(units)
+        assert units != stat_units("en")  # localized, not English

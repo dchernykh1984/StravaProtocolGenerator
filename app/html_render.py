@@ -113,6 +113,9 @@ class StageColumns(PersonColumns):
     speed_label: str = "Speed"
     hr_label: str = "HR"
     power_label: str = "Power"
+    speed_unit: str = "km/h"
+    hr_unit: str = "bpm"
+    power_unit: str = "W"
 
 
 @dataclass
@@ -135,9 +138,10 @@ class CupColumns(PersonColumns):
     show_links: bool = False
 
 
-# Localized headers for the optional Strava stat columns (speed, HR, power). Units stay
-# universal (km/h, bpm, W) in the cells. ru/kk use \u escapes to keep the source ASCII
-# (the no-non-ascii hook); ASCII transliterations follow each value.
+# Localized headers and units for the optional Strava stat columns (speed, HR, power).
+# ru/kk use \u escapes to keep the source ASCII (the no-non-ascii hook); ASCII
+# transliterations follow each value. The kk terms are best-effort -- verify with a
+# native speaker (HR reuses the Russian loanword "Puls").
 _STAT_LABELS: dict[str, tuple[str, str, str]] = {
     "ru": (
         "\u0421\u043a\u043e\u0440\u043e\u0441\u0442\u044c",  # Skorost (Speed)
@@ -152,10 +156,29 @@ _STAT_LABELS: dict[str, tuple[str, str, str]] = {
     "en": ("Speed", "HR", "Power"),
 }
 
+_STAT_UNITS: dict[str, tuple[str, str, str]] = {
+    "ru": (
+        "\u043a\u043c/\u0447",  # km/ch (km/h)
+        "\u0443\u0434/\u043c\u0438\u043d",  # ud/min (bpm)
+        "\u0412\u0442",  # Vt (W)
+    ),
+    "kk": (
+        "\u043a\u043c/\u0441\u0430\u0493",  # km/sag (km/h)
+        "\u0441\u043e\u049b/\u043c\u0438\u043d",  # soq/min (bpm)
+        "\u0412\u0442",  # Vt (W)
+    ),
+    "en": ("km/h", "bpm", "W"),
+}
+
 
 def stat_labels(language: str) -> tuple[str, str, str]:
     """The (speed, HR, power) column headers for ``language`` (English if unknown)."""
     return _STAT_LABELS.get(language, _STAT_LABELS["en"])
+
+
+def stat_units(language: str) -> tuple[str, str, str]:
+    """The (speed, HR, power) cell units for ``language`` (English if unknown)."""
+    return _STAT_UNITS.get(language, _STAT_UNITS["en"])
 
 
 def _place_text(place: int | None, disable_dnf: bool) -> str:
@@ -234,19 +257,19 @@ def _person_cells(competitor: Competitor, columns: PersonColumns) -> str:
     return out
 
 
-def _speed_kmh(value: float | None) -> str:
-    """Strava's metres/second rendered as ``km/h`` (blank when absent)."""
-    return f"{value * 3.6:.1f} km/h" if value is not None else ""
+def _speed_kmh(value: float | None, unit: str = "km/h") -> str:
+    """Strava's metres/second converted to km/h, labelled ``unit`` (blank if absent)."""
+    return f"{value * 3.6:.1f} {unit}" if value is not None else ""
 
 
-def _hr_text(value: float | None) -> str:
-    """Average heart rate rendered as ``bpm`` (blank when absent)."""
-    return f"{round(value)} bpm" if value is not None else ""
+def _hr_text(value: float | None, unit: str = "bpm") -> str:
+    """Average heart rate labelled ``unit`` (blank when absent)."""
+    return f"{round(value)} {unit}" if value is not None else ""
 
 
-def _watts_text(value: float | None) -> str:
-    """Average power rendered as ``W`` (blank when absent)."""
-    return f"{round(value)} W" if value is not None else ""
+def _watts_text(value: float | None, unit: str = "W") -> str:
+    """Average power labelled ``unit`` (blank when absent)."""
+    return f"{round(value)} {unit}" if value is not None else ""
 
 
 def _stat_presence(
@@ -280,15 +303,17 @@ def _stat_headers(columns: StageColumns, flags: tuple[bool, bool, bool]) -> str:
     return out
 
 
-def _stat_cells(entry: StageEntry, flags: tuple[bool, bool, bool]) -> str:
+def _stat_cells(
+    entry: StageEntry, columns: StageColumns, flags: tuple[bool, bool, bool]
+) -> str:
     """The rider's (speed, HR, power) value cells for the columns ``flags`` enables."""
     out = ""
     if flags[0]:
-        out += _cell(_speed_kmh(entry.avg_speed))
+        out += _cell(_speed_kmh(entry.avg_speed, columns.speed_unit))
     if flags[1]:
-        out += _cell(_hr_text(entry.avg_hr))
+        out += _cell(_hr_text(entry.avg_hr, columns.hr_unit))
     if flags[2]:
-        out += _cell(_watts_text(entry.avg_watts))
+        out += _cell(_watts_text(entry.avg_watts, columns.power_unit))
     return out
 
 
@@ -479,7 +504,7 @@ def render_stage_protocol(
             result_url = entry.result_url if columns.show_links else ""
             gap = _gap_text(entry.value, leader, decimals) if columns.show_gap else ""
             buf.write(_value_cell(_link_inner(result, result_url), gap, styles))
-            buf.write(_stat_cells(entry, stat_flags))
+            buf.write(_stat_cells(entry, columns, stat_flags))
             buf.write("</tr>\n")
         buf.write("</table>\n<BR>\n")
     _write_race_footer(buf, info)
