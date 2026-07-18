@@ -240,10 +240,12 @@ def _speed_kmh(value: float | None) -> str:
 
 
 def _hr_text(value: float | None) -> str:
+    """Average heart rate rendered as ``bpm`` (blank when absent)."""
     return f"{round(value)} bpm" if value is not None else ""
 
 
 def _watts_text(value: float | None) -> str:
+    """Average power rendered as ``W`` (blank when absent)."""
     return f"{round(value)} W" if value is not None else ""
 
 
@@ -267,6 +269,7 @@ def _stat_presence(
 
 
 def _stat_headers(columns: StageColumns, flags: tuple[bool, bool, bool]) -> str:
+    """The header cells for the (speed, HR, power) columns that ``flags`` enables."""
     out = ""
     if flags[0]:
         out += _header_cell(columns.speed_label)
@@ -278,6 +281,7 @@ def _stat_headers(columns: StageColumns, flags: tuple[bool, bool, bool]) -> str:
 
 
 def _stat_cells(entry: StageEntry, flags: tuple[bool, bool, bool]) -> str:
+    """The rider's (speed, HR, power) value cells for the columns ``flags`` enables."""
     out = ""
     if flags[0]:
         out += _cell(_speed_kmh(entry.avg_speed))
