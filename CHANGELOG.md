@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.1.0...v0.1.1) (2026-07-21)
+
+
+### Bug Fixes
+
+* reliable release builds (linux-aarch64 on ubuntu-24.04, drop Intel macOS) ([4f651e5](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/4f651e5a18ecd838c05b0105ff68b3257d119d68))
+
 ## 0.1.0 (2026-07-21)
 
 
