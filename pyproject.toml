@@ -1,6 +1,6 @@
 [project]
 name = "strava-protocol-generator"
-version = "0.1.0"
+version = "0.1.1"
 description = "Generate competition protocols from Strava segment results"
 authors = [{ name = "Denis Chernykh", email = "education03@mail.ru" }]
 requires-python = ">=3.14,<3.15"
