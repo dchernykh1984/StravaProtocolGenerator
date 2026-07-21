@@ -10,7 +10,7 @@ build/render/publish core, so live and replayed runs produce identical protocols
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 from typing import Any, Protocol
@@ -326,6 +326,7 @@ def _render_stage_outputs(
         speed_unit=speed_unit,
         hr_unit=hr_unit,
         power_unit=power_unit,
+        show_stats=config.show_strava_statistics,
     )
     generic: list[StageEntry | CupEntry] = list(entries)
     abs_html = render_stage_protocol(
@@ -337,15 +338,16 @@ def _render_stage_outputs(
         stage.race_info,
         show_group_column=stage.show_group,
     )
-    # Strava stats are per-effort, so they go only on the per-stage group protocol,
-    # not the absolute one or the cup (whose totals combine several efforts).
+    # Both stage protocols show the same per-effort results, so both carry the stats.
+    # The cup does not: its totals combine several efforts (and ``CupColumns`` has no
+    # stat fields at all).
     grp_html = render_stage_protocol(
         stage.name,
         _group_and_rank(
             generic, categories, stage.unregistered_group_name, stage.show_unregistered
         ),
         styles,
-        replace(columns, show_stats=config.show_strava_statistics),
+        columns,
         config.decimals,
         stage.race_info,
     )

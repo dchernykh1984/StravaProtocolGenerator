@@ -75,6 +75,32 @@ def test_cup_stage_and_total_force_hour_field() -> None:
     assert out.count("0:53:39") == 2
 
 
+def test_absolute_protocol_keeps_columns_aligned_with_group_and_stats() -> None:
+    # The absolute protocol is the only table that carries the group column *and* the
+    # stat columns, so header and body cell counts must still line up.
+    import re
+
+    a = StageEntry(
+        Competitor("p:1", "A", "G1", True),
+        [300.0],
+        300.0,
+        avg_speed=11.57,
+        avg_hr=160.0,
+    )
+    b = StageEntry(Competitor("p:2", "B", "G2", True), [310.0], 310.0)  # no stats
+    out = render_stage_protocol(
+        "T",
+        [("", [Ranked(1, a), Ranked(2, b)])],
+        columns=StageColumns(show_stats=True, group_label="Group"),
+        show_group_column=True,
+    )
+    counts = [
+        len(re.findall(r"<t[dh]", row)) for row in re.findall(r"<tr.*?</tr>", out, re.S)
+    ]
+    assert len(counts) == 3  # header + two riders
+    assert len(set(counts)) == 1  # all rows have the same number of cells
+
+
 def test_cup_protocol_renders_stage_links_when_enabled() -> None:
     entry = CupEntry(
         Competitor("p:1", "Ivan", "A", True, athlete_url="https://strava.test/a/1"),
