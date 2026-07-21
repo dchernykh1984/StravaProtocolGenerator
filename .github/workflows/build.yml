@@ -71,18 +71,20 @@ jobs:
         run: |
           set -euo pipefail
           sep=":"; [ "$RUNNER_OS" = "Windows" ] && sep=";"
+          # Pin PyInstaller so a future major release cannot break builds.
+          pyi=(uv run --with "pyinstaller>=6,<7" pyinstaller)
           common=(--noconfirm --windowed --name "$APP_NAME" \
                   --collect-submodules app --add-data "app/app.ico${sep}app")
           if [ "$RUNNER_OS" = "macOS" ]; then
-            uv run --with pyinstaller pyinstaller "${common[@]}" app/main.py
+            "${pyi[@]}" "${common[@]}" app/main.py
             ( cd dist && zip -r -y "${APP_NAME}-${{ matrix.name }}.zip" "${APP_NAME}.app" )
             echo "ASSET=dist/${APP_NAME}-${{ matrix.name }}.zip" >> "$GITHUB_ENV"
           elif [ "$RUNNER_OS" = "Windows" ]; then
-            uv run --with pyinstaller pyinstaller --onefile --icon app/app.ico "${common[@]}" app/main.py
+            "${pyi[@]}" --onefile --icon app/app.ico "${common[@]}" app/main.py
             mv "dist/${APP_NAME}.exe" "dist/${APP_NAME}-${{ matrix.name }}.exe"
             echo "ASSET=dist/${APP_NAME}-${{ matrix.name }}.exe" >> "$GITHUB_ENV"
           else
-            uv run --with pyinstaller pyinstaller --onefile "${common[@]}" app/main.py
+            "${pyi[@]}" --onefile "${common[@]}" app/main.py
             mv "dist/${APP_NAME}" "dist/${APP_NAME}-${{ matrix.name }}"
             echo "ASSET=dist/${APP_NAME}-${{ matrix.name }}" >> "$GITHUB_ENV"
           fi
