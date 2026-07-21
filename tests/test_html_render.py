@@ -94,11 +94,14 @@ def test_absolute_protocol_keeps_columns_aligned_with_group_and_stats() -> None:
         columns=StageColumns(show_stats=True, group_label="Group"),
         show_group_column=True,
     )
-    counts = [
-        len(re.findall(r"<t[dh]", row)) for row in re.findall(r"<tr.*?</tr>", out, re.S)
-    ]
+    rows = re.findall(r"<tr.*?</tr>", out, re.S)
+    counts = [len(re.findall(r"<t[dh]", row)) for row in rows]
     assert len(counts) == 3  # header + two riders
-    assert len(set(counts)) == 1  # all rows have the same number of cells
+    # Place, Name, Group, Result, Speed, HR -- pinning the count (not just "all equal")
+    # so a regression that drops the stat columns entirely cannot pass this test.
+    assert set(counts) == {6}
+    # Power is dropped because no rider recorded watts.
+    assert "Speed" in rows[0] and "HR" in rows[0] and "Power" not in rows[0]
 
 
 def test_cup_protocol_renders_stage_links_when_enabled() -> None:
