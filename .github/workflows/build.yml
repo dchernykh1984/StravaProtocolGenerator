@@ -1,24 +1,20 @@
 name: build
 
-# Portable, self-contained builds. Users download one file for their platform
-# and run it - no Python/uv/git needed. Data lives next to the program.
+# Reusable build. With an empty release_tag it runs a fast Linux x64 smoke build
+# (used on pull requests). With a release_tag it builds the full platform matrix
+# and uploads each portable app to that GitHub Release.
 #
-# On a pull request only a Linux x64 smoke build runs (fast, cheap). The full
-# platform matrix runs when a release is published and the artifacts are
-# attached to that GitHub Release.
+# It is called in the SAME run as release-please (see release-please.yml) so the
+# assets actually attach: a release created by GITHUB_TOKEN does not, by design,
+# trigger a separate `release: published` workflow.
 
 on:
-  pull_request:
-  release:
-    types: [published]
-
-# Cancel superseded pull-request builds, but never interrupt a release build.
-concurrency:
-  group: build-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
-permissions:
-  contents: read
+  workflow_call:
+    inputs:
+      release_tag:
+        description: "Release tag to attach assets to; empty => Linux-only smoke build, no upload."
+        type: string
+        default: ""
 
 env:
   APP_NAME: StravaProtocolGenerator
@@ -34,7 +30,7 @@ jobs:
         run: |
           full='{"include":[{"os":"ubuntu-22.04","name":"linux-x86_64"},{"os":"ubuntu-22.04-arm","name":"linux-aarch64"},{"os":"windows-latest","name":"windows-x64"},{"os":"windows-11-arm","name":"windows-arm64"},{"os":"macos-13","name":"macos-x86_64"},{"os":"macos-14","name":"macos-arm64"}]}'
           smoke='{"include":[{"os":"ubuntu-22.04","name":"linux-x86_64"}]}'
-          if [ "${{ github.event_name }}" = "release" ]; then
+          if [ -n "${{ inputs.release_tag }}" ]; then
             echo "matrix=$full" >> "$GITHUB_OUTPUT"
           else
             echo "matrix=$smoke" >> "$GITHUB_OUTPUT"
@@ -43,8 +39,6 @@ jobs:
   build:
     needs: targets
     timeout-minutes: 30
-    permissions:
-      contents: write # attach assets to the release
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
@@ -99,8 +93,6 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          # Actually start the bundled app headlessly to catch broken bundling
-          # (e.g. a missing hidden import) that "file exists" would not.
           set +e
           timeout 20 "$ASSET"
           code=$?
@@ -118,8 +110,8 @@ jobs:
           path: ${{ env.ASSET }}
 
       - name: Attach to release
-        if: github.event_name == 'release'
+        if: inputs.release_tag != ''
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.event.release.tag_name }}" "$ASSET" --clobber
+        run: gh release upload "${{ inputs.release_tag }}" "$ASSET" --clobber
