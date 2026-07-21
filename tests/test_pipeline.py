@@ -593,7 +593,7 @@ def test_default_date_range_scrapes_multiple_windows() -> None:
     assert "today" in ranges and "this_week" in ranges  # several windows scraped
 
 
-def test_group_protocol_includes_statistics_only_when_enabled() -> None:
+def test_both_stage_protocols_include_statistics_when_enabled() -> None:
     from app.html_render import stat_labels, stat_units
 
     speed, hr, power = stat_labels("ru")
@@ -617,8 +617,11 @@ def test_group_protocol_includes_statistics_only_when_enabled() -> None:
     assert hr in stage_grp and f"172 {hr_u}" in stage_grp
     assert power in stage_grp and f"276 {power_u}" in stage_grp
     assert "41.7 km/h" not in stage_grp  # English unit replaced by the localized one
-    # Per-effort stats never go on the absolute protocol.
-    assert speed not in stage_abs
+    # The absolute protocol shows the same per-effort results, so it carries the stats
+    # too (only the cup, whose totals combine efforts, leaves them out).
+    assert speed in stage_abs and f"41.7 {speed_u}" in stage_abs
+    assert hr in stage_abs and f"172 {hr_u}" in stage_abs
+    assert power in stage_abs and f"276 {power_u}" in stage_abs
 
 
 def test_statistics_language_follows_config_not_the_default() -> None:
@@ -646,15 +649,40 @@ def test_statistics_language_follows_config_not_the_default() -> None:
     assert ru_speed not in stage_grp  # the default language is not used
 
 
-def test_group_protocol_omits_statistics_when_disabled() -> None:
+def test_both_stage_protocols_omit_statistics_when_disabled() -> None:
+    from app.html_render import stat_units
+
+    speed_u = stat_units("ru")[0]
     row = _row("111", "Ivan Petrov", "5:00")
     row.avg_speed = 11.57
     written: dict[str, str] = {}
     generate(
-        _config(),
+        _config(),  # show_strava_statistics defaults to False
         _FakeLeaderboard({"seg1": row}),
         _FakeClient(_roster()),
         writer=_capture_writer(written),
     )
-    stage_grp = next(c for p, c in written.items() if "Day_1_group" in p)
-    assert "km/h" not in stage_grp
+    for kind in ("Day_1_group", "Day_1_absolute"):
+        html = next(c for p, c in written.items() if kind in p)
+        assert "km/h" not in html and speed_u not in html
+
+
+def test_cup_protocols_never_show_statistics() -> None:
+    from app.html_render import stat_labels, stat_units
+
+    speed = stat_labels("ru")[0]
+    speed_u = stat_units("ru")[0]
+    row = _row("111", "Ivan Petrov", "5:00")
+    row.avg_speed = 11.57
+    config = _config()
+    config.show_strava_statistics = True  # enabled, but the cup still opts out
+    written: dict[str, str] = {}
+    generate(
+        config,
+        _FakeLeaderboard({"seg1": row}),
+        _FakeClient(_roster()),
+        writer=_capture_writer(written),
+    )
+    for kind in ("Cup_absolute", "Cup_group"):
+        html = next(c for p, c in written.items() if kind in p)
+        assert speed not in html and speed_u not in html
