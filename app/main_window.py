@@ -57,16 +57,17 @@ from app.config import (
 )
 from app.leaderboard_api import StravaAuthError, StravaLeaderboard
 from app.models import RaceInfo
+from app.paths import app_path
 from app.pipeline import GenerationResult, generate
 from app.scoring import CupRule, StageRule
 from app.selenium_driver import SeleniumBrowser
 from app.site_api import SiteApiClient
 
-DATA_DIR = "data"
-HISTORY_DIR = "temp"
-LOG_DIR = "logs"
+DATA_DIR = str(app_path("data"))
+HISTORY_DIR = str(app_path("temp"))
+LOG_DIR = str(app_path("logs"))
 ICON_PATH = str(Path(__file__).parent / "app.ico")
-_CONFIG_PATH = f"{DATA_DIR}/{CONFIG_NAME}"
+_CONFIG_PATH = str(app_path("data", CONFIG_NAME))
 _ACTIONS = [a.value for a in HttpAction]
 _STAGE_RULES = [r.value for r in StageRule]
 _CUP_RULES = [r.value for r in CupRule]
