@@ -70,7 +70,7 @@ jobs:
           common=(--noconfirm --windowed --name "$APP_NAME" \
                   --collect-submodules app --add-data "app/app.ico${sep}app")
           if [ "$RUNNER_OS" = "macOS" ]; then
-            "${pyi[@]}" "${common[@]}" app/main.py
+            "${pyi[@]}" --icon app/app.icns "${common[@]}" app/main.py
             ( cd dist && zip -r -y "${APP_NAME}-${{ matrix.name }}.zip" "${APP_NAME}.app" )
             echo "ASSET=dist/${APP_NAME}-${{ matrix.name }}.zip" >> "$GITHUB_ENV"
           elif [ "$RUNNER_OS" = "Windows" ]; then
