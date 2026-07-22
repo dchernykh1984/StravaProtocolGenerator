@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.1.1...v0.1.2) (2026-07-22)
+
+
+### Bug Fixes
+
+* embed the app icon in the macOS build ([b4c4bb1](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/b4c4bb1b2fe07c1319331ab918500d9cfb80d8ab))
+
 ## [0.1.1](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.1.0...v0.1.1) (2026-07-21)
 
 
