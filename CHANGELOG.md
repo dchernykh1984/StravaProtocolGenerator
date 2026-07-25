@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.1.3...v0.1.4) (2026-07-25)
+
+
+### Bug Fixes
+
+* keep uv.lock in step with the released version ([0f5394c](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/0f5394c7976c018d3f5062592aeb13cb48ac57fc))
+
 ## [0.1.3](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.1.2...v0.1.3) (2026-07-25)
 
 
