@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.1.2...v0.1.3) (2026-07-25)
+
+
+### Documentation
+
+* explain how to run the app from a release ([e24c57a](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/e24c57aeac2364a8a2d1453e25969e89a282acf7))
+
 ## [0.1.2](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.1.1...v0.1.2) (2026-07-22)
 
 
