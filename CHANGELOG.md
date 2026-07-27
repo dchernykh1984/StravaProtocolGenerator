@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.6](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.1.5...v0.1.6) (2026-07-27)
+
+
+### Bug Fixes
+
+* keep the macos bundle file name free of spaces ([2302859](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/2302859502e23401f6de09c8f4c123317e1d104c))
+
 ## [0.1.5](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.1.4...v0.1.5) (2026-07-27)
 
 
