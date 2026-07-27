@@ -67,6 +67,13 @@ DATA_DIR = str(app_path("data"))
 HISTORY_DIR = str(app_path("temp"))
 LOG_DIR = str(app_path("logs"))
 ICON_PATH = str(Path(__file__).parent / "app.ico")
+# How the app calls itself to the user and to the OS shell. The macOS dock and
+# task switcher read this from the frozen bundle's Info.plist (see the build
+# workflow), never from the window title - the two are kept in step by hand.
+APP_DISPLAY_NAME = "Strava Protocol Generator"
+# Basename of the freedesktop .desktop entry; on Linux it becomes the window's
+# WM_CLASS, which is what the taskbar labels the window with.
+APP_DESKTOP_NAME = "strava-protocol-generator"
 _CONFIG_PATH = str(app_path("data", CONFIG_NAME))
 _ACTIONS = [a.value for a in HttpAction]
 _STAGE_RULES = [r.value for r in StageRule]
@@ -732,7 +739,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("Strava Protocol Generator")
+        self.setWindowTitle(APP_DISPLAY_NAME)
         self.setWindowIcon(QIcon(ICON_PATH))
         self._worker: _GenerateWorker | None = None
         self._login_worker: _LoginWorker | None = None
