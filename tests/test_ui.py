@@ -597,3 +597,34 @@ def test_strava_statistics_controls_roundtrip() -> None:
     collected = window.collect_config()
     assert collected.show_strava_statistics is True
     assert collected.strava_statistics_language == "kk"
+
+
+def test_main_window_title_is_the_display_name() -> None:
+    window = mw.MainWindow()
+    assert window.windowTitle() == mw.APP_DISPLAY_NAME
+
+
+def test_configure_app_identity_names_the_app_for_the_shell() -> None:
+    from app.main import configure_app_identity
+
+    before = (
+        _app.applicationName(),
+        _app.applicationDisplayName(),
+        _app.desktopFileName(),
+    )
+    try:
+        configure_app_identity(_app)
+        assert _app.applicationName() == mw.APP_DISPLAY_NAME
+        assert _app.applicationDisplayName() == mw.APP_DISPLAY_NAME
+        assert _app.desktopFileName() == mw.APP_DESKTOP_NAME
+    finally:
+        _app.setApplicationName(before[0])
+        _app.setApplicationDisplayName(before[1])
+        _app.setDesktopFileName(before[2])
+
+
+def test_display_name_is_not_the_artifact_name() -> None:
+    # The regression this guards: the shell name fell back to the packaged
+    # file name, so the dock read "StravaProtocolGenerator".
+    assert mw.APP_DISPLAY_NAME != mw.APP_DESKTOP_NAME
+    assert " " in mw.APP_DISPLAY_NAME
