@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.5](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.1.4...v0.1.5) (2026-07-27)
+
+
+### Bug Fixes
+
+* give the macos bundle a proper identifier and version ([7dc4f0b](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/7dc4f0b99396ae7cf40e811ccea5849d0520262e))
+* show the full app name in the dock and task switcher ([68e8a35](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/68e8a3545074668c5d4d622cce64295e3ae53df6))
+
 ## [0.1.4](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.1.3...v0.1.4) (2026-07-25)
 
 
