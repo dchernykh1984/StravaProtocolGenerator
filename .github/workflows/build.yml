@@ -81,8 +81,11 @@ jobs:
           sep=":"; [ "$RUNNER_OS" = "Windows" ] && sep=";"
           # Pin PyInstaller so a future major release cannot break builds.
           pyi=(uv run --with "pyinstaller>=6,<7" pyinstaller)
+          # selenium.webdriver imports its browser modules lazily, so PyInstaller
+          # misses them unless they are collected explicitly.
           common=(--noconfirm --windowed \
-                  --collect-submodules app --add-data "app/app.ico${sep}app")
+                  --collect-submodules app --collect-submodules selenium \
+                  --add-data "app/app.ico${sep}app")
           if [ "$RUNNER_OS" = "macOS" ]; then
             # --name sets the .app folder name, which is what the dock shows.
             # The zip around it keeps the artifact name, so download URLs are
