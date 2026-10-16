@@ -37,6 +37,7 @@ from app.html_render import (
 )
 from app.matching import duplicate_strava_id_warnings, match_rows_to_participants
 from app.models import LeaderboardRow, Participant
+from app.paths import app_path
 from app.scoring import (
     CupEntry,
     Ranked,
@@ -224,21 +225,21 @@ def _resolve_links(
 
 def _styles(config: AppConfig) -> HtmlStyles:
     if config.template_file:
-        loaded = load_template(config.template_file)
+        loaded = load_template(str(app_path(config.template_file)))
         if loaded is not None:
             return loaded
     return HtmlStyles()
 
 
 def _stage_paths(config: AppConfig, stage: StageConfig) -> tuple[str, str]:
-    base = Path(config.output_dir)
+    base = app_path(config.output_dir)
     abs_file = stage.absolute_file or f"{_safe_filename(stage.name)}_absolute.html"
     grp_file = stage.group_file or f"{_safe_filename(stage.name)}_group.html"
     return str(base / abs_file), str(base / grp_file)
 
 
 def _cup_paths(config: AppConfig) -> tuple[str, str]:
-    base = Path(config.output_dir)
+    base = app_path(config.output_dir)
     cup = config.cup
     abs_file = cup.absolute_file or f"{_safe_filename(cup.name)}_absolute.html"
     grp_file = cup.group_file or f"{_safe_filename(cup.name)}_group.html"
