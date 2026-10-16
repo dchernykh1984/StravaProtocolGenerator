@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.7](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.1.6...v0.1.7) (2026-10-16)
+
+
+### Bug Fixes
+
+* **build:** bundle selenium submodules so the login browser starts ([ec6f715](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/ec6f715ebc7719ca1b5f8096786883809e724d5f))
+* resolve relative output and template paths against the app folder ([539c585](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/539c585f3588dfebda9d31c3924ce45ff6f8ef13))
+
 ## [0.1.6](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.1.5...v0.1.6) (2026-07-27)
 
 
