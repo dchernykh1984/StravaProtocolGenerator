@@ -1,5 +1,6 @@
 """End-to-end pipeline tests with a fake leaderboard source and fake site client."""
 
+from app import paths
 from app.config import AppConfig, CupConfig, HttpAction, SegmentConfig, StageConfig
 from app.models import Category, LeaderboardRow, Participant
 from app.pipeline import generate, generate_from_snapshot
@@ -686,3 +687,25 @@ def test_cup_protocols_never_show_statistics() -> None:
     for kind in ("Cup_absolute", "Cup_group"):
         html = next(c for p, c in written.items() if kind in p)
         assert speed not in html and speed_u not in html
+
+
+def test_relative_output_dir_is_created_next_to_the_app(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(paths, "base_dir", lambda: tmp_path)
+    cfg = _config()
+    cfg.output_dir = "out/nested"
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
+    generate(cfg, browser, _FakeClient(_roster()))
+    assert (tmp_path / "out" / "nested" / "Day_1_absolute.html").is_file()
+
+
+def test_relative_template_file_resolves_next_to_the_app(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(paths, "base_dir", lambda: tmp_path)
+    (tmp_path / "template.html").write_text(
+        "\n".join(["T-STYLE", *[""] * 10]), encoding="utf-8"
+    )
+    cfg = _config()
+    cfg.template_file = "template.html"
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
+    written: dict[str, str] = {}
+    generate(cfg, browser, _FakeClient(_roster()), writer=_capture_writer(written))
+    assert any('style="T-STYLE"' in c for c in written.values())

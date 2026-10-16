@@ -311,7 +311,7 @@ class FilePicker(QWidget):
             if self._existing
             else QFileDialog.getSaveFileName
         )
-        path, _ = dialog(self, "Pick file", self.edit.text(), "*.html")
+        path, _ = dialog(self, "Pick file", str(app_path(self.edit.text())), "*.html")
         if path:
             self.edit.setText(path)
 
