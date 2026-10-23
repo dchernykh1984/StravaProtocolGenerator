@@ -84,6 +84,11 @@ class Ranked:
     entry: StageEntry | CupEntry
 
 
+def group_key(competitor: Competitor, unregistered_name: str) -> str:
+    """The group a competitor is shown in: their category, or the unregistered group."""
+    return competitor.group_name if competitor.is_registered else unregistered_name
+
+
 def combine_times(values: list[float | None]) -> float | None:
     """Sum the times, or ``None`` if the list is empty or any time is missing.
 
