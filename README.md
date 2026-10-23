@@ -130,7 +130,9 @@ token), and configure the stages and the cup, then generate.
   configurable, and the cup shows one "lap" column per stage plus a total.
 - **Publishing** -- each protocol has its own action (Nothing / Upload / Delete) to
   the relevant token (per-stage broadcast token, or the overall token for the cup).
-  There is no FTP; a local HTML copy is always written.
+  There is no FTP; a local HTML copy is always written. **Send protocols to the site
+  as** chooses `HTML + Data` (default: the site shows the results in its own look on
+  phones and desktops, with the HTML kept as the original), `HTML` or `Data`.
 
 ## Stages, config, and backups
 
