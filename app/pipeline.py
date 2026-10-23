@@ -22,6 +22,7 @@ from app.config import (
     FilterType,
     Gender,
     HttpAction,
+    ProtocolFormat,
     SegmentConfig,
     StageConfig,
 )
@@ -38,6 +39,7 @@ from app.html_render import (
 from app.matching import duplicate_strava_id_warnings, match_rows_to_participants
 from app.models import LeaderboardRow, Participant
 from app.paths import app_path
+from app.protocol_document import build_cup_document, build_stage_document
 from app.scoring import (
     CupEntry,
     Ranked,
@@ -67,7 +69,9 @@ class SiteClient(Protocol):
         html_path: str,
         is_live: bool = ...,
         stage_label: str = ...,
-    ) -> None: ...
+        document: dict[str, Any] | None = ...,
+        send_html: bool = ...,
+    ) -> str: ...
 
     def delete_protocol(self, token: str, protocol_type: str) -> None: ...
 
@@ -119,6 +123,8 @@ class ProtocolOutput:
     path: str
     published: bool = False
     error: str = ""
+    # Why the site did not take the protocol data (it then shows the HTML).
+    warning: str = ""
 
 
 @dataclass
@@ -253,13 +259,28 @@ def _publish(
     is_live: bool,
     stage_label: str,
     output: ProtocolOutput,
+    document: dict[str, Any] | None = None,
+    protocol_format: ProtocolFormat = ProtocolFormat.BOTH,
 ) -> None:
     """Apply a protocol's publish action, recording any failure on ``output``."""
     if action is HttpAction.NOTHING or not token:
         return
+    send = document if protocol_format is not ProtocolFormat.HTML else None
+    # Data only, but the data could not be built: the HTML still goes out.
+    send_html = protocol_format is not ProtocolFormat.DATA or send is None
     try:
         if action is HttpAction.UPLOAD:
-            client.upload_protocol(token, protocol_type, path, is_live, stage_label)
+            refused = client.upload_protocol(
+                token,
+                protocol_type,
+                path,
+                is_live,
+                stage_label,
+                document=send,
+                send_html=send_html,
+            )
+            if refused:
+                output.warning = f"the site did not accept the protocol data: {refused}"
         else:
             client.delete_protocol(token, protocol_type)
         output.published = action is HttpAction.UPLOAD
@@ -279,14 +300,38 @@ def _emit(
     action: HttpAction,
     is_live: bool,
     stage_label: str,
+    document: Callable[[], dict[str, Any]] | None = None,
+    protocol_format: ProtocolFormat = ProtocolFormat.BOTH,
 ) -> ProtocolOutput:
-    """Write one protocol locally and, when publishing, push it to the site."""
+    """Write one protocol locally and, when publishing, push it to the site.
+
+    ``document`` builds the structured protocol; it runs only when the protocol is
+    uploaded with data, and a failure there costs the data, never the HTML.
+    """
     protocol_type = "absolute" if scope == "absolute" else "group"
     writer(path, html)
     output = ProtocolOutput(kind=kind, scope=scope, label=label, path=path)
     if client is not None:
+        built = None
+        wanted = (
+            action is HttpAction.UPLOAD and protocol_format is not ProtocolFormat.HTML
+        )
+        if document is not None and wanted and token:
+            try:
+                built = document()
+            except Exception as exc:
+                output.warning = f"protocol data not built: {exc}"
         _publish(
-            client, token, protocol_type, path, action, is_live, stage_label, output
+            client,
+            token,
+            protocol_type,
+            path,
+            action,
+            is_live,
+            stage_label,
+            output,
+            built,
+            protocol_format,
         )
     return output
 
@@ -328,23 +373,39 @@ def _render_stage_outputs(
         show_stats=config.show_strava_statistics,
     )
     generic: list[StageEntry | CupEntry] = list(entries)
+    abs_groups = _rank_all(generic, stage.show_unregistered)
+    grp_groups = _group_and_rank(
+        generic, categories, stage.unregistered_group_name, stage.show_unregistered
+    )
     abs_html = render_stage_protocol(
         stage.name,
-        _rank_all(generic, stage.show_unregistered),
+        abs_groups,
         styles,
         columns,
         config.decimals,
         stage.race_info,
         show_group_column=stage.show_group,
     )
+
+    def stage_document(groups, show_group_column):
+        return lambda: build_stage_document(
+            stage.name,
+            groups,
+            columns,
+            config.decimals,
+            stage.race_info,
+            show_group_column,
+            categories,
+            stage.unregistered_group_name,
+            config.strava_statistics_language,
+        )
+
     # Both stage protocols show the same per-effort results, so both carry the stats.
     # The cup does not: its totals combine several efforts (and ``CupColumns`` has no
     # stat fields at all).
     grp_html = render_stage_protocol(
         stage.name,
-        _group_and_rank(
-            generic, categories, stage.unregistered_group_name, stage.show_unregistered
-        ),
+        grp_groups,
         styles,
         columns,
         config.decimals,
@@ -364,6 +425,8 @@ def _render_stage_outputs(
             stage.absolute_action,
             stage.is_live,
             stage.stage_label,
+            stage_document(abs_groups, stage.show_group),
+            config.protocol_format,
         ),
         _emit(
             writer,
@@ -377,6 +440,8 @@ def _render_stage_outputs(
             stage.group_action,
             stage.is_live,
             stage.stage_label,
+            stage_document(grp_groups, False),
+            config.protocol_format,
         ),
     ]
 
@@ -414,9 +479,28 @@ def _render_cup_outputs(
         show_links=config.show_strava_links,
     )
     generic: list[StageEntry | CupEntry] = list(cup_entries)
+    abs_groups = _rank_all(generic, cup.show_unregistered)
+    grp_groups = _group_and_rank(
+        generic, categories, cup.unregistered_group_name, cup.show_unregistered
+    )
+
+    def cup_document(groups, show_group_column):
+        return lambda: build_cup_document(
+            cup.name,
+            groups,
+            stage_labels,
+            columns,
+            config.decimals,
+            cup.race_info,
+            show_group_column,
+            categories,
+            cup.unregistered_group_name,
+            config.strava_statistics_language,
+        )
+
     abs_html = render_cup_protocol(
         cup.name,
-        _rank_all(generic, cup.show_unregistered),
+        abs_groups,
         stage_labels,
         styles,
         columns,
@@ -426,9 +510,7 @@ def _render_cup_outputs(
     )
     grp_html = render_cup_protocol(
         cup.name,
-        _group_and_rank(
-            generic, categories, cup.unregistered_group_name, cup.show_unregistered
-        ),
+        grp_groups,
         stage_labels,
         styles,
         columns,
@@ -449,6 +531,8 @@ def _render_cup_outputs(
             cup.absolute_action,
             cup.is_live,
             cup.stage_label,
+            cup_document(abs_groups, cup.show_group),
+            config.protocol_format,
         ),
         _emit(
             writer,
@@ -462,6 +546,8 @@ def _render_cup_outputs(
             cup.group_action,
             cup.is_live,
             cup.stage_label,
+            cup_document(grp_groups, False),
+            config.protocol_format,
         ),
     ]
 

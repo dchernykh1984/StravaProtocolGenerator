@@ -24,6 +24,18 @@ class HttpAction(StrEnum):
     DELETE = "Delete"
 
 
+class ProtocolFormat(StrEnum):
+    """How a protocol goes to the site: HTML, structured data the site draws, or both.
+
+    Both from one run is the default: the site shows the data in its own look and keeps
+    the HTML of the same upload as the original.
+    """
+
+    BOTH = "HTML + Data"
+    HTML = "HTML"
+    DATA = "Data"
+
+
 class DateRange(StrEnum):
     """Strava's server-side leaderboard window preset (its ``date_range`` param).
 
@@ -360,6 +372,7 @@ class AppConfig:
     refresh_interval: int = 30
     template_file: str = ""
     output_dir: str = "output"
+    protocol_format: ProtocolFormat = ProtocolFormat.BOTH
     stages: list[StageConfig] = field(default_factory=lambda: [StageConfig()])
     cup: CupConfig = field(default_factory=CupConfig)
 
@@ -381,6 +394,7 @@ class AppConfig:
             "refresh_interval": self.refresh_interval,
             "template_file": self.template_file,
             "output_dir": self.output_dir,
+            "protocol_format": self.protocol_format.value,
             "stages": [s.to_dict() for s in self.stages],
             "cup": self.cup.to_dict(),
         }
@@ -404,6 +418,9 @@ class AppConfig:
             refresh_interval=d("refresh_interval"),
             template_file=d("template_file"),
             output_dir=d("output_dir"),
+            protocol_format=_coerce_enum(
+                ProtocolFormat, data.get("protocol_format"), ProtocolFormat.BOTH
+            ),
             stages=stages or [StageConfig()],
             cup=cup,
         )
