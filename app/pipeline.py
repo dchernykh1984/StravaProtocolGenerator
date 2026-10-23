@@ -44,6 +44,7 @@ from app.scoring import (
     StageEntry,
     build_cup_entries,
     build_stage_entries,
+    group_key,
     rank_entries,
 )
 from app.scraper import Leaderboard, scrape_windows
@@ -163,10 +164,7 @@ def _group_and_rank(
     groups: dict[str, list[StageEntry | CupEntry]] = {}
     seen: list[str] = []
     for entry in _kept(entries, show_unregistered):
-        if entry.competitor.is_registered:
-            name = entry.competitor.group_name
-        else:
-            name = unregistered_name
+        name = group_key(entry.competitor, unregistered_name)
         if name not in groups:
             groups[name] = []
             seen.append(name)
