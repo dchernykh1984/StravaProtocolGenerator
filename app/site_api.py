@@ -60,6 +60,22 @@ class SiteApiClient:
         except (json.JSONDecodeError, ValueError) as exc:
             raise SiteApiError(f"Invalid response: {exc}") from exc
 
+    def _post_for_answer(self, url: str, data: bytes, content_type: str) -> bytes:
+        """POST like ``_post`` and return the response body."""
+        request = urllib.request.Request(  # noqa: S310
+            url, data=data, headers={"Content-Type": content_type}, method="POST"
+        )
+        try:
+            with self._opener(request, timeout=self.timeout) as resp:
+                status = int(getattr(resp, "status", 0))
+                if not 200 <= status < 300:
+                    raise SiteApiError(f"HTTP {status} from {url}")
+                return resp.read()
+        except urllib.error.HTTPError as exc:
+            raise SiteApiError(f"HTTP {exc.code}: {exc.reason}") from exc
+        except urllib.error.URLError as exc:
+            raise SiteApiError(f"Connection error: {exc.reason}") from exc
+
     def _post(self, url: str, data: bytes, content_type: str) -> int:
         request = urllib.request.Request(  # noqa: S310
             url, data=data, headers={"Content-Type": content_type}, method="POST"
@@ -99,11 +115,27 @@ class SiteApiClient:
         html_path: str,
         is_live: bool = True,
         stage_label: str = "",
-    ) -> None:
-        """Publish a protocol HTML file to the site as ``absolute`` or ``group``."""
-        path = Path(html_path)
-        if not path.exists():
-            raise SiteApiError(f"File not found: {html_path}")
+        document: dict[str, Any] | None = None,
+        send_html: bool = True,
+    ) -> str:
+        """Publish a protocol to the site as ``absolute`` or ``group``.
+
+        Sends the HTML file (unless ``send_html`` is off) and, when given, the
+        structured ``document`` in one request; the site then shows the document and
+        keeps the HTML as the original. Returns the site's reason for not accepting the
+        document (it then shows the HTML), or ``""``.
+        """
+        files: list[tuple[str, str, str, bytes]] = []
+        if send_html:
+            path = Path(html_path)
+            if not path.exists():
+                raise SiteApiError(f"File not found: {html_path}")
+            files.append(("html_file", path.name, "text/html", path.read_bytes()))
+        if document is not None:
+            payload = json.dumps(document, ensure_ascii=False).encode("utf-8")
+            files.append(("document", "protocol.json", "application/json", payload))
+        if not files:
+            raise SiteApiError("Nothing to upload: no HTML and no protocol data")
         body, content_type = _multipart(
             fields={
                 "competition_token": token,
@@ -111,11 +143,15 @@ class SiteApiClient:
                 "is_live": "true" if is_live else "false",
                 "stage_label": stage_label,
             },
-            file_field="html_file",
-            filename=path.name,
-            file_content=path.read_bytes(),
+            files=files,
         )
-        self._post(self.base_url + "/api/v1/protocols/upload/", body, content_type)
+        answer = self._post_for_answer(
+            self.base_url + "/api/v1/protocols/upload/", body, content_type
+        )
+        try:
+            return str(json.loads(answer.decode("utf-8")).get("document_error") or "")
+        except ValueError, AttributeError, TypeError:
+            return ""  # an older site, or an answer without JSON: the upload succeeded
 
     def delete_protocol(self, token: str, protocol_type: str) -> None:
         """Remove a published protocol so its live-broadcast link disappears."""
@@ -143,11 +179,10 @@ class SiteApiClient:
 
 def _multipart(
     fields: dict[str, str],
-    file_field: str,
-    filename: str,
-    file_content: bytes,
+    files: list[tuple[str, str, str, bytes]],
 ) -> tuple[bytes, str]:
-    """Encode text fields and a file as multipart/form-data; return (body, type)."""
+    """Encode text fields and files ``(field, filename, type, content)`` as
+    multipart/form-data; return (body, type)."""
     boundary = uuid.uuid4().hex
     parts: list[bytes] = []
     for name, value in fields.items():
@@ -158,15 +193,16 @@ def _multipart(
                 f"{value}\r\n"
             ).encode()
         )
-    parts.append(
-        (
-            f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; name="{file_field}";'
-            f' filename="{filename}"\r\n'
-            "Content-Type: text/html\r\n\r\n"
-        ).encode()
-        + file_content
-        + b"\r\n"
-    )
+    for file_field, filename, file_type, file_content in files:
+        parts.append(
+            (
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="{file_field}";'
+                f' filename="{filename}"\r\n'
+                f"Content-Type: {file_type}\r\n\r\n"
+            ).encode()
+            + file_content
+            + b"\r\n"
+        )
     parts.append(f"--{boundary}--\r\n".encode())
     return b"".join(parts), f"multipart/form-data; boundary={boundary}"

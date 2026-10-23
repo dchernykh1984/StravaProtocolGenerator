@@ -69,6 +69,8 @@ class _FakeClient:
         self._fail = fail
         self.uploads: list[tuple[str, str, str]] = []
         self.deletes: list[tuple[str, str]] = []
+        self.sent: list[tuple[str, dict | None, bool]] = []
+        self.refuse = ""
 
     def fetch_participants(self, token: str) -> ParticipantsResponse:
         if self._fail:
@@ -82,8 +84,12 @@ class _FakeClient:
         html_path: str,
         is_live: bool = True,
         stage_label: str = "",
-    ) -> None:
+        document: dict | None = None,
+        send_html: bool = True,
+    ) -> str:
         self.uploads.append((token, protocol_type, html_path))
+        self.sent.append((protocol_type, document, send_html))
+        return self.refuse
 
     def delete_protocol(self, token: str, protocol_type: str) -> None:
         self.deletes.append((token, protocol_type))
@@ -460,7 +466,7 @@ def test_generate_tolerates_bad_date() -> None:
 
 def test_generate_publish_error_recorded_on_output() -> None:
     class _FailingUpload(_FakeClient):
-        def upload_protocol(self, *a: object, **k: object) -> None:
+        def upload_protocol(self, *a: object, **k: object) -> str:  # type: ignore[override]
             raise SiteApiError("upload down")
 
     browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})

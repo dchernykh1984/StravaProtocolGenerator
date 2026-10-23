@@ -19,6 +19,7 @@ dev = [
     "pytest-xdist>=3.8.0,<4",
     "pytest-asyncio>=1.4.0,<2",
     "pytest-cov>=7.1.0,<8",
+    "jsonschema>=4.23,<5",
 ]
 
 [tool.uv]
