@@ -27,5 +27,14 @@ protocols -> optionally publish them back to the site.
 ## Site contract
 
 - The roster read and the protocol publish use the same cycling-site REST API as the
-  other referee tools (competition id plus token; protocols are HTML posted to the site).
-  Re-publishing with the same competition overwrites; there is no separate edit call.
+  other referee tools (competition id plus token). Re-publishing with the same
+  competition overwrites; there is no separate edit call.
+- A protocol goes as HTML, as structured data the site draws itself
+  (`app/protocol_document.py`, schema copy in `tests/fixtures/protocol-document-v1.json`
+  from the site's `protocols/schema/`), or both (`AppConfig.protocol_format`, default
+  both). The builders take the HTML renderers' inputs plus `categories` and the
+  protocol's own `unregistered_group_name`, and reuse `html_render`'s helpers so the
+  data never disagrees with the HTML; `tests/test_protocol_document.py` checks every HTML
+  value appears in the data. Strava links stay (`url` on name, result and stage cells).
+- A document the site refuses comes back as `document_error` and is shown as an
+  output warning; a failing build is a warning too, and the HTML still goes out.
