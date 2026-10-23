@@ -25,6 +25,8 @@ from app.pipeline import generate, generate_from_snapshot
 from app.site_api import ParticipantsResponse, SiteApiClient, _multipart
 from app.timeparse import parse_time
 
+# "km/h" in Russian, from code points: source files stay ASCII.
+KMH_RU = "".join(map(chr, (0x43A, 0x43C, 0x2F, 0x447)))
 SCHEMA = json.loads(
     (Path(__file__).parent / "fixtures" / "protocol-document-v1.json").read_text()
 )
@@ -277,7 +279,7 @@ def test_statistics_columns_come_with_their_units():
     ids = [c["id"] for c in stage["sections"][0]["columns"]]
     assert "speed" in ids and "hr" in ids and "power" not in ids
     row = stage["sections"][0]["rows"][0]
-    assert row["cells"]["speed"].endswith(("km/h", "км/ч"))
+    assert row["cells"]["speed"].endswith(("km/h", KMH_RU))
 
 
 @pytest.mark.parametrize("from_snapshot", [False, True])
