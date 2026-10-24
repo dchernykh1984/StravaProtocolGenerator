@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.3.0...v0.3.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* **document:** give each kind of column a rank of its own, so only the stages fall out together ([dfe824e](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/dfe824e7ea2f182cc038b275898f816de2a984df))
+
 ## [0.3.0](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.2.1...v0.3.0) (2026-10-24)
 
 
