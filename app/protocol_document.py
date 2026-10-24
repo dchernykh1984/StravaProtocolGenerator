@@ -164,12 +164,8 @@ def _items(info: RaceInfo, header: bool) -> list[dict[str, Any]]:
             items.append({"type": "field", "key": key, "label": label, "value": value})
 
     if header:
-        if info.sponsor:
-            items.append({"type": "html", "html": info.sponsor})
-        date_place = ", ".join(p for p in (info.date, info.place) if p)
-        if date_place:
-            items.append({"type": "text", "text": date_place})
-        field("track", info.track_label, info.track_conditions)
+        # The date, the place, the course and the sponsors are the event page's on the
+        # site; the protocol page above its tables keeps what changes on the day.
         field("weather", info.weather_label, info.weather)
     else:
         field("organizer", info.organizer_label, info.organizer)
