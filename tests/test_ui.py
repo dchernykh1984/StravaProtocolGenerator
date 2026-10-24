@@ -18,7 +18,13 @@ from PySide6.QtGui import QCloseEvent, QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox, QPushButton
 
 from app import main_window as mw
-from app.config import AppConfig, CupConfig, SegmentConfig, StageConfig
+from app.config import (
+    AppConfig,
+    CupConfig,
+    ProtocolFormat,
+    SegmentConfig,
+    StageConfig,
+)
 
 _app = QApplication.instance() or QApplication([])
 
@@ -628,3 +634,25 @@ def test_display_name_is_not_the_artifact_name() -> None:
     # file name, so the dock read "StravaProtocolGenerator".
     assert mw.APP_DISPLAY_NAME != mw.APP_DESKTOP_NAME
     assert " " in mw.APP_DISPLAY_NAME
+
+
+@pytest.mark.parametrize("fmt", list(ProtocolFormat))
+def test_protocol_format_round_trips_through_the_window(fmt) -> None:
+    window = mw.MainWindow()
+    window.apply_config(AppConfig(protocol_format=fmt))
+    assert window._protocol_format.currentText() == fmt.value
+    collected = window.collect_config()
+    assert collected.protocol_format is fmt
+    assert (
+        collected.to_dict()["protocol_format"] == fmt.value
+    )  # Generate saves this first
+
+
+def test_an_old_config_without_a_format_still_saves_from_the_window(tmp_path) -> None:
+    # The Generate button saves the window's config before running; a format read back
+    # from the combo as a plain str made that save raise, so the button did nothing.
+    window = mw.MainWindow()
+    window.apply_config(AppConfig.from_dict({"site_url": "https://s.test"}))
+    collected = window.collect_config()
+    assert collected.protocol_format is ProtocolFormat.BOTH
+    mw.save_config(collected, str(tmp_path), str(tmp_path / "history"))
