@@ -663,7 +663,9 @@ def test_a_chosen_protocol_format_survives_closing_and_reopening(tmp_path, fmt) 
     # Closing saves the window's config; the next launch loads it from disk.
     window = mw.MainWindow()
     window._protocol_format.setCurrentText(fmt.value)
-    current, _ = mw.save_config(window.collect_config(), str(tmp_path), str(tmp_path / "h"))
+    current, _ = mw.save_config(
+        window.collect_config(), str(tmp_path), str(tmp_path / "h")
+    )
     reopened = mw.MainWindow()
     reopened.apply_config(mw.load_config(current))
     assert reopened._protocol_format.currentText() == fmt.value
