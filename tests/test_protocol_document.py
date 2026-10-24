@@ -474,3 +474,36 @@ def test_two_categories_with_one_name_are_listed_once():
         check_document_rules(document)
         ids = [g["id"] for g in document["groups"]]
         assert len(ids) == len(set(ids))
+
+
+def test_long_names_with_one_beginning_stay_two_groups():
+    config = _config()
+    long_category = "M" * 100
+    config.stages[0].unregistered_group_name = "M" * 100 + " guests"
+    client = _Client()
+    real = client.fetch_participants
+
+    def fetch(token):
+        response = real(token)
+        for participant in response.participants:
+            if participant.category_name == "M30":
+                participant.category_name = long_category
+        response.categories = [
+            Category(id=1, name=long_category),
+            Category(id=2, name="M40"),
+        ]
+        return response
+
+    client.fetch_participants = fetch  # type: ignore[method-assign]
+    generate(config, _board(), client, writer=lambda p, c: None)
+    stage = _documents(client)[("t1", "absolute")]
+    jsonschema.validate(stage, SCHEMA)
+    check_document_rules(stage)
+    ids = [g["id"] for g in stage["groups"]]
+    assert len(ids) == 3 and all(len(i) <= 100 for i in ids)
+    labels = {g["id"]: g["label"] for g in stage["groups"]}
+    rows = {
+        r["cells"]["name"]["text"]: r["group"] for r in stage["sections"][0]["rows"]
+    }
+    assert labels[rows["Ivan Petrov"]] == long_category
+    assert labels[rows["Guest Rider"]] == "M" * 100 + " guests"
