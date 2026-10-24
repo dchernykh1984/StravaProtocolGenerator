@@ -626,3 +626,24 @@ def test_columns_are_ranked_for_a_screen_that_cannot_show_them_all():
                 assert "priority" not in column, cid
             seen.add(cid)
     assert {"stage1", "speed"} <= seen
+
+
+def test_the_header_keeps_the_weather_and_leaves_the_rest_to_the_event_page():
+    from app.models import RaceInfo
+
+    config = _config()
+    config.stages[0].race_info = RaceInfo(
+        date="2026-10-17",
+        place="Almaty",
+        sponsor="<b>Giant</b>",
+        track_conditions="25 km",
+        weather="+10, sunny",
+        referee="D. Chernykh",
+    )
+    client = _Client()
+    generate(config, _board(), client, writer=lambda p, c: None)
+    document = _documents(client)[("t1", "group")]
+    assert document["header"] == [
+        {"type": "field", "key": "weather", "label": "Weather", "value": "+10, sunny"}
+    ]
+    assert [i.get("key") for i in document["footer"]] == ["referee"]
