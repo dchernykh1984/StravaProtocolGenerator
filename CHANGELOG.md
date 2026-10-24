@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.2.0...v0.2.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* **ui:** read the protocol format back as a ProtocolFormat so Generate saves and runs ([a0cdab1](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/a0cdab1bf8cf5f13976efd43b764e178ecefa57a))
+
 ## [0.2.0](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.1.7...v0.2.0) (2026-10-24)
 
 
