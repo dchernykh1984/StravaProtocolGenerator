@@ -656,3 +656,15 @@ def test_an_old_config_without_a_format_still_saves_from_the_window(tmp_path) ->
     collected = window.collect_config()
     assert collected.protocol_format is ProtocolFormat.BOTH
     mw.save_config(collected, str(tmp_path), str(tmp_path / "history"))
+
+
+@pytest.mark.parametrize("fmt", list(ProtocolFormat))
+def test_a_chosen_protocol_format_survives_closing_and_reopening(tmp_path, fmt) -> None:
+    # Closing saves the window's config; the next launch loads it from disk.
+    window = mw.MainWindow()
+    window._protocol_format.setCurrentText(fmt.value)
+    current, _ = mw.save_config(window.collect_config(), str(tmp_path), str(tmp_path / "h"))
+    reopened = mw.MainWindow()
+    reopened.apply_config(mw.load_config(current))
+    assert reopened._protocol_format.currentText() == fmt.value
+    assert reopened.collect_config().protocol_format is fmt
