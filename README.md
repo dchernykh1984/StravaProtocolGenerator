@@ -132,7 +132,12 @@ token), and configure the stages and the cup, then generate.
   the relevant token (per-stage broadcast token, or the overall token for the cup).
   There is no FTP; a local HTML copy is always written. **Send protocols to the site
   as** chooses `HTML + Data` (default: the site shows the results in its own look on
-  phones and desktops, with the HTML kept as the original), `HTML` or `Data`.
+  phones and desktops, with the HTML kept as the original), `HTML` or `Data`. The data
+  leaves the date, place, course and sponsors to the site's event page and keeps the
+  weather above the tables and the officials below; each column says how much it
+  matters, so a narrow screen drops the speed and heart-rate columns first, then year,
+  city, team, stages and group. It needs cycling-site after its #375: an older site
+  refuses it and the HTML is published instead.
 
 ## Stages, config, and backups
 
