@@ -11,6 +11,7 @@ protocols/schema/protocol-document-v1.json.
 from __future__ import annotations
 
 import hashlib
+import re
 from importlib import metadata
 from typing import Any, cast
 
@@ -36,6 +37,7 @@ from app.timeparse import format_time
 SCHEMA_VERSION = 1
 GENERATOR = "StravaProtocolGenerator"
 _MAX_GROUP_ID = 100
+_HASHED_ID = re.compile(r"~[0-9a-f]{8}$")
 
 
 def _version() -> str:
@@ -162,10 +164,14 @@ def _items(info: RaceInfo, header: bool) -> list[dict[str, Any]]:
 
 
 def _group_id(name: str) -> str:
-    """A group's id on the site: its name, or -- for a name longer than the site
-    allows -- the name cut short plus a hash of the whole, so two long names never
-    become one group and the id stays the same from one run to the next."""
-    if len(name) <= _MAX_GROUP_ID:
+    """A group's id on the site: its name, or the name cut short plus its hash.
+
+    The hashed form is used for a name longer than the site allows, and also for a short
+    name that merely looks like one (ending in "~" and 8 hex digits), so a real name can
+    never equal another name's hashed id; two long names with one beginning stay apart,
+    and an id stays the same from one run to the next.
+    """
+    if len(name) <= _MAX_GROUP_ID and not _HASHED_ID.search(name):
         return name
     digest = hashlib.sha1(name.encode("utf-8")).hexdigest()[:8]  # noqa: S324 -- an id
     return f"{name[: _MAX_GROUP_ID - len(digest) - 1]}~{digest}"
