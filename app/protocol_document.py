@@ -40,6 +40,19 @@ _MAX_GROUP_ID = 100
 _HASHED_ID = re.compile(r"~[0-9a-f]{8}$")
 
 
+#: How much each column matters when the site leaves some out to fit a screen: 1 always
+#: stays (place, name and result, by their roles), the highest number goes first --
+#: the same ranks as FinishProtocolGenerator, so both kinds of protocol thin out alike.
+_PRIORITY = {
+    "group": 3,
+    "stage": 4,
+    "team": 5,
+    "city": 6,
+    "year": 7,
+    "stats": 8,
+}
+
+
 def _version() -> str:
     try:
         return metadata.version("strava-protocol-generator")
@@ -80,13 +93,17 @@ def _person_columns(
     if show_name:
         out.append(_column("name", name_label, role="name"))
     if show_group_column:
-        out.append(_column("group", group_label, role="group", priority=2))
+        out.append(
+            _column("group", group_label, role="group", priority=_PRIORITY["group"])
+        )
     if columns.show_year:
-        out.append(_column("year", columns.year_label, priority=3))
+        out.append(_column("year", columns.year_label, priority=_PRIORITY["year"]))
     if columns.show_team:
-        out.append(_column("team", columns.team_label, role="team", priority=2))
+        out.append(
+            _column("team", columns.team_label, role="team", priority=_PRIORITY["team"])
+        )
     if columns.show_city:
-        out.append(_column("city", columns.city_label, priority=3))
+        out.append(_column("city", columns.city_label, priority=_PRIORITY["city"]))
     return out
 
 
@@ -262,7 +279,7 @@ def build_stage_document(
         strict=True,
     ):
         if flag:
-            table_columns.append(_column(column_id, label, priority=3))
+            table_columns.append(_column(column_id, label, priority=_PRIORITY["stats"]))
     ids = {c["id"] for c in table_columns}
     sections = []
     for group_name, ranked in groups:
@@ -328,7 +345,9 @@ def build_cup_document(
     stage_sub = [columns.stage_gap_label] if columns.show_stage_gap else []
     for j, label in enumerate(stage_labels):
         table_columns.append(
-            _column(f"stage{j + 1}", label, sub_label=stage_sub, priority=3)
+            _column(
+                f"stage{j + 1}", label, sub_label=stage_sub, priority=_PRIORITY["stage"]
+            )
         )
     total_sub = []
     if columns.show_gap:
