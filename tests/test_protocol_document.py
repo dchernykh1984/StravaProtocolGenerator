@@ -613,13 +613,13 @@ def test_the_sites_reason_comes_with_the_error(tmp_path):
 
 def test_columns_are_ranked_for_a_screen_that_cannot_show_them_all():
     _, client, _ = _run()
-    expected = {"group": 3, "team": 5, "city": 6, "year": 7, "speed": 8, "hr": 8}
+    expected = {"group": 4, "team": 6, "city": 7, "year": 8, "speed": 9, "hr": 9}
     seen = set()
     for document in _documents(client).values():
         for column in document["sections"][0]["columns"]:
             cid = column["id"]
             if cid.startswith("stage"):
-                assert column["priority"] == 4
+                assert column["priority"] == 5
             elif cid in expected:
                 assert column["priority"] == expected[cid], cid
             else:  # place, name, result: the roles the site always keeps

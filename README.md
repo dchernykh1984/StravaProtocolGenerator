@@ -136,8 +136,8 @@ token), and configure the stages and the cup, then generate.
   leaves the date, place, course and sponsors to the site's event page and keeps the
   weather above the tables and the officials below; each column says how much it
   matters, so a narrow screen drops the speed and heart-rate columns first, then year,
-  city, team, stages and group. It needs cycling-site after its #375: an older site
-  refuses it and the HTML is published instead.
+  city, team, all the stages together and the group. It needs cycling-site after its
+  #375: an older site refuses it and the HTML is published instead.
 
 ## Stages, config, and backups
 

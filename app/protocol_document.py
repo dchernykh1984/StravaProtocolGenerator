@@ -43,13 +43,15 @@ _HASHED_ID = re.compile(r"~[0-9a-f]{8}$")
 #: How much each column matters when the site leaves some out to fit a screen: 1 always
 #: stays (place, name and result, by their roles), the highest number goes first --
 #: the same ranks as FinishProtocolGenerator, so both kinds of protocol thin out alike.
+#: The site leaves out the columns of one rank together: every stage shares one, the
+#: speed, heart-rate and power columns another, and nothing else shares a rank.
 _PRIORITY = {
-    "group": 3,
-    "stage": 4,
-    "team": 5,
-    "city": 6,
-    "year": 7,
-    "stats": 8,
+    "group": 4,
+    "stage": 5,
+    "team": 6,
+    "city": 7,
+    "year": 8,
+    "stats": 9,
 }
 
 
