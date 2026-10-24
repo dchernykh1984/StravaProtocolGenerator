@@ -270,15 +270,24 @@ def _publish(
     send_html = protocol_format is not ProtocolFormat.DATA or send is None
     try:
         if action is HttpAction.UPLOAD:
-            refused = client.upload_protocol(
-                token,
-                protocol_type,
-                path,
-                is_live,
-                stage_label,
-                document=send,
-                send_html=send_html,
-            )
+            try:
+                refused = client.upload_protocol(
+                    token,
+                    protocol_type,
+                    path,
+                    is_live,
+                    stage_label,
+                    document=send,
+                    send_html=send_html,
+                )
+            except SiteApiError as exc:
+                if exc.status != 400 or send_html:
+                    raise
+                # Data only, refused: publish the HTML rather than show nothing.
+                client.upload_protocol(
+                    token, protocol_type, path, is_live, stage_label, send_html=True
+                )
+                refused = f"{exc}; the HTML was published instead"
             if refused:
                 output.warning = f"the site did not accept the protocol data: {refused}"
         else:
