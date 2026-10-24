@@ -808,8 +808,9 @@ class MainWindow(QMainWindow):
         strava_row.addWidget(self._strava_stats_language)
         strava_row.addStretch(1)
         self._protocol_format = QComboBox()
-        for fmt in ProtocolFormat:
-            self._protocol_format.addItem(fmt.value, fmt)
+        # Read back by its text, like the action combos: Qt hands item data back as a plain
+        # str, which is not a ProtocolFormat.
+        self._protocol_format.addItems([fmt.value for fmt in ProtocolFormat])
         self._globals_layout.addRow("Site URL", widgets["site_url"])
         self._globals_layout.addRow("Registration list token", widgets["roster_token"])
         self._globals_layout.addRow("Decimals", self._decimals)
@@ -879,7 +880,7 @@ class MainWindow(QMainWindow):
             refresh_interval=self._interval.value(),
             template_file=self._template_file.text().strip(),
             output_dir=self._globals["output_dir"].text().strip() or "output",
-            protocol_format=self._protocol_format.currentData() or ProtocolFormat.BOTH,
+            protocol_format=ProtocolFormat(self._protocol_format.currentText()),
             stages=stages or [StageConfig()],
             cup=self._cup.to_config(),
         )
@@ -891,8 +892,9 @@ class MainWindow(QMainWindow):
         self._decimals.setValue(config.decimals)
         self._show_strava_links.setChecked(config.show_strava_links)
         self._show_strava_statistics.setChecked(config.show_strava_statistics)
-        format_index = self._protocol_format.findData(config.protocol_format)
-        self._protocol_format.setCurrentIndex(format_index if format_index >= 0 else 0)
+        self._protocol_format.setCurrentText(
+            ProtocolFormat(config.protocol_format).value
+        )
         lang_index = self._strava_stats_language.findData(
             config.strava_statistics_language
         )
