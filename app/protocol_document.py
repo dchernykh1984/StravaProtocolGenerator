@@ -10,6 +10,7 @@ protocols/schema/protocol-document-v1.json.
 
 from __future__ import annotations
 
+import hashlib
 from importlib import metadata
 from typing import Any, cast
 
@@ -117,7 +118,7 @@ def _row(
     if item.place is None and not disable_dnf:
         row["status"] = "dnf"
     if tag_group:
-        key = group_key(item.entry.competitor, unregistered_name)[:_MAX_GROUP_ID]
+        key = _group_id(group_key(item.entry.competitor, unregistered_name))
         if key:
             row["group"] = key
     return row
@@ -132,7 +133,7 @@ def _section(
     section: dict[str, Any] = {"type": "table", "columns": columns, "rows": rows}
     if group_name:
         section["title"] = f"{group_label} {group_name}" if group_label else group_name
-        section["group"] = group_name[:_MAX_GROUP_ID]
+        section["group"] = _group_id(group_name)
     return section
 
 
@@ -160,28 +161,48 @@ def _items(info: RaceInfo, header: bool) -> list[dict[str, Any]]:
     return items
 
 
+def _group_id(name: str) -> str:
+    """A group's id on the site: its name, or -- for a name longer than the site
+    allows -- the name cut short plus a hash of the whole, so two long names never
+    become one group and the id stays the same from one run to the next."""
+    if len(name) <= _MAX_GROUP_ID:
+        return name
+    digest = hashlib.sha1(name.encode("utf-8")).hexdigest()[:8]  # noqa: S324 -- an id
+    return f"{name[: _MAX_GROUP_ID - len(digest) - 1]}~{digest}"
+
+
 def _registry(
-    sections: list[dict[str, Any]], categories: list[str], unregistered_name: str
+    groups: list[tuple[str, list[Ranked]]],
+    categories: list[str],
+    unregistered_name: str,
 ) -> list[dict[str, str]]:
-    """The groups that actually hold rows, in the order the group protocol uses."""
+    """The groups that hold rows, once each, in the order the group protocol uses.
+
+    A name is listed once however often it comes (a category named like the
+    unregistered group, two categories with one name): the site refuses an id twice.
+    """
     present: list[str] = []
-    for section in sections:
-        for key in [section.get("group"), *(r.get("group") for r in section["rows"])]:
-            if key and key not in present:
-                present.append(key)
-    # Once each: a category may share its name with another or with the guests, and
-    # the site refuses an id given twice.
-    order = list(dict.fromkeys([*categories, unregistered_name]))
-    ordered = [g for g in order if g in present] + [
-        g for g in present if g not in order
-    ]
-    return [{"id": g, "label": g} for g in ordered]
+    for group_name, ranked in groups:
+        if group_name:
+            present.append(group_name)
+        else:
+            present.extend(
+                group_key(item.entry.competitor, unregistered_name) for item in ranked
+            )
+    present = [name for name in dict.fromkeys(present) if name]
+    order = [*categories, unregistered_name]
+    names = [n for n in order if n in present] + [n for n in present if n not in order]
+    registry: dict[str, str] = {}
+    for name in names:
+        registry.setdefault(_group_id(name), name)
+    return [{"id": gid, "label": label} for gid, label in registry.items()]
 
 
 def _document(
     title: str,
     info: RaceInfo,
     sections: list[dict[str, Any]],
+    groups: list[tuple[str, list[Ranked]]],
     categories: list[str],
     unregistered_name: str,
     lang: str,
@@ -190,7 +211,7 @@ def _document(
         "schema": SCHEMA_VERSION,
         "generator": {"name": GENERATOR, "version": _version()},
         "header": _items(info, header=True),
-        "groups": _registry(sections, categories, unregistered_name),
+        "groups": _registry(groups, categories, unregistered_name),
         "sections": sections,
         "footer": _items(info, header=False),
     }
@@ -270,7 +291,9 @@ def build_stage_document(
                 )
             )
         sections.append(_section(group_name, columns.group_label, table_columns, rows))
-    return _document(title, race_info, sections, categories, unregistered_name, lang)
+    return _document(
+        title, race_info, sections, groups, categories, unregistered_name, lang
+    )
 
 
 def build_cup_document(
@@ -356,4 +379,6 @@ def build_cup_document(
                 )
             )
         sections.append(_section(group_name, columns.group_label, table_columns, rows))
-    return _document(title, race_info, sections, categories, unregistered_name, lang)
+    return _document(
+        title, race_info, sections, groups, categories, unregistered_name, lang
+    )
