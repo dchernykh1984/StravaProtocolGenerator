@@ -808,8 +808,8 @@ class MainWindow(QMainWindow):
         strava_row.addWidget(self._strava_stats_language)
         strava_row.addStretch(1)
         self._protocol_format = QComboBox()
-        # Read back by its text, like the action combos: Qt hands item data back as a plain
-        # str, which is not a ProtocolFormat.
+        # Read back by its text, like the action combos: Qt hands item data back as a
+        # plain str, which is not a ProtocolFormat.
         self._protocol_format.addItems([fmt.value for fmt in ProtocolFormat])
         self._globals_layout.addRow("Site URL", widgets["site_url"])
         self._globals_layout.addRow("Registration list token", widgets["roster_token"])
