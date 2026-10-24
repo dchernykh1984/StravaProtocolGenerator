@@ -169,7 +169,9 @@ def _registry(
         for key in [section.get("group"), *(r.get("group") for r in section["rows"])]:
             if key and key not in present:
                 present.append(key)
-    order = [*categories, unregistered_name]
+    # Once each: a category may share its name with another or with the guests, and
+    # the site refuses an id given twice.
+    order = list(dict.fromkeys([*categories, unregistered_name]))
     ordered = [g for g in order if g in present] + [
         g for g in present if g not in order
     ]
