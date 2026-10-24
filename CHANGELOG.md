@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.2.0](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.1.7...v0.2.0) (2026-10-24)
+
+
+### Features
+
+* **protocols:** send stage and cup protocols to the site as structured data ([35c2a81](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/35c2a8148194ca48cc29d6ec6b8bf9a7123b9208))
+
+
+### Bug Fixes
+
+* **deps:** patch certifi ([b8c339b](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/b8c339b7ef94b56ffcbbcd8e7a70431ce7685d55))
+* **protocols:** keep a group whose name looks like a hashed id apart from the group it imitates ([3d074cd](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/3d074cdae2632da1d09b37d5559faebb98d27efc))
+* **protocols:** keep long group names apart with stable ids ([59b33d3](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/59b33d3e4cddc7f0f63c44b15371cb30404add21))
+* **protocols:** list a group once when names repeat ([3daacdc](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/3daacdcac5a28bc7e164deeb892aa876afbcde52))
+* **protocols:** publish the HTML when the site refuses a data-only upload ([94d7f43](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/94d7f435fac46a2f24531baf3765a7069a41d1ad))
+
+
+### Documentation
+
+* **protocols:** describe sending protocols as data ([f85be27](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/f85be2759a9c022b9e51898499386779254bdfe2))
+
 ## [0.1.7](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.1.6...v0.1.7) (2026-10-16)
 
 
