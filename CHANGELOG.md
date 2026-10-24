@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.2.1...v0.3.0) (2026-10-24)
+
+
+### Features
+
+* **document:** leave the date, place, course and sponsors to the site's event page ([74be2d5](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/74be2d580812b5490b66ca6bb295193577ba6fc4))
+* **document:** rank the columns so a narrow screen leaves out statistics first, as FinishProtocolGenerator does ([8ede67c](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/8ede67c47236741ef0eae609570f17d89a972611))
+
+
+### Documentation
+
+* **readme:** say what the protocol data leaves to the event page and how its columns are ranked ([769d2bf](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/769d2bff789fab8de715dc53d3c09e13b163a8dc))
+
 ## [0.2.1](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.2.0...v0.2.1) (2026-10-24)
 
 
