@@ -507,3 +507,38 @@ def test_long_names_with_one_beginning_stay_two_groups():
     }
     assert labels[rows["Ivan Petrov"]] == long_category
     assert labels[rows["Guest Rider"]] == "M" * 100 + " guests"
+
+
+def test_a_category_equal_to_the_guests_hashed_id_stays_its_own_group():
+    from app.protocol_document import _group_id
+
+    guests = "M" * 100 + " guests"
+    lookalike = _group_id(guests)  # a legitimate 100-character category name
+    config = _config()
+    config.stages[0].unregistered_group_name = guests
+    client = _Client()
+    real = client.fetch_participants
+
+    def fetch(token):
+        response = real(token)
+        for participant in response.participants:
+            if participant.category_name == "M30":
+                participant.category_name = lookalike
+        response.categories = [
+            Category(id=1, name=lookalike),
+            Category(id=2, name="M40"),
+        ]
+        return response
+
+    client.fetch_participants = fetch  # type: ignore[method-assign]
+    generate(config, _board(), client, writer=lambda p, c: None)
+    stage = _documents(client)[("t1", "absolute")]
+    check_document_rules(stage)
+    labels = {g["id"]: g["label"] for g in stage["groups"]}
+    assert len(labels) == 3
+    rows = {
+        r["cells"]["name"]["text"]: r["group"] for r in stage["sections"][0]["rows"]
+    }
+    assert labels[rows["Ivan Petrov"]] == lookalike
+    assert labels[rows["Guest Rider"]] == guests
+    assert rows["Ivan Petrov"] != rows["Guest Rider"]
