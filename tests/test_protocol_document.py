@@ -439,3 +439,38 @@ def test_multipart_carries_each_file_with_its_type():
     )
     assert content_type.startswith("multipart/form-data; boundary=")
     assert b"Content-Type: application/json" in body
+
+
+def _run_with(config: AppConfig, roster_categories: list[str] | None = None):
+    client = _Client()
+    if roster_categories is not None:
+        real = client.fetch_participants
+
+        def fetch(token):
+            response = real(token)
+            response.categories = [
+                Category(id=i, name=name) for i, name in enumerate(roster_categories, 1)
+            ]
+            return response
+
+        client.fetch_participants = fetch  # type: ignore[method-assign]
+    generate(config, _board(), client, writer=lambda p, c: None)
+    return _documents(client)
+
+
+def test_guests_named_like_a_category_are_listed_once():
+    config = _config()
+    config.stages[0].unregistered_group_name = "M30"
+    documents = _run_with(config)
+    for kind in ("absolute", "group"):
+        document = documents[("t1", kind)]
+        check_document_rules(document)
+        assert [g["id"] for g in document["groups"]] == ["M30", "M40"]
+
+
+def test_two_categories_with_one_name_are_listed_once():
+    documents = _run_with(_config(), ["M30", "M40", "M30"])
+    for document in documents.values():
+        check_document_rules(document)
+        ids = [g["id"] for g in document["groups"]]
+        assert len(ids) == len(set(ids))
