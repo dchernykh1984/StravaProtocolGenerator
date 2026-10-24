@@ -542,3 +542,70 @@ def test_a_category_equal_to_the_guests_hashed_id_stays_its_own_group():
     assert labels[rows["Ivan Petrov"]] == lookalike
     assert labels[rows["Guest Rider"]] == guests
     assert rows["Ivan Petrov"] != rows["Guest Rider"]
+
+
+def test_refused_data_only_publishes_the_html_instead():
+    from app.site_api import SiteApiError
+
+    class _Refusing(_Client):
+        def upload_protocol(
+            self,
+            token,
+            protocol_type,
+            html_path,
+            is_live=True,
+            stage_label="",
+            document=None,
+            send_html=True,
+        ) -> str:
+            self.sent.append((token, protocol_type, document, send_html))
+            if not send_html:
+                raise SiteApiError("HTTP 400: too big", status=400)
+            return ""
+
+    client = _Refusing()
+    result, _, _ = _run(ProtocolFormat.DATA, client)
+    stage = [s for s in client.sent if s[0] == "t1" and s[1] == "absolute"]
+    assert [(doc is not None, html) for _, _, doc, html in stage] == [
+        (True, False),
+        (False, True),
+    ]
+    output = next(
+        o for o in result.outputs if o.kind == "stage" and o.scope == "absolute"
+    )
+    assert output.published and not output.error
+    assert (
+        "too big" in output.warning and "HTML was published instead" in output.warning
+    )
+
+
+def test_a_refusal_that_carried_html_stays_an_error():
+    from app.site_api import SiteApiError
+
+    class _Refusing(_Client):
+        def upload_protocol(self, *args, **kwargs) -> str:
+            raise SiteApiError("HTTP 400: bad", status=400)
+
+    result, _, _ = _run(ProtocolFormat.BOTH, _Refusing())
+    assert all(o.error and not o.published for o in result.outputs)
+
+
+def test_the_sites_reason_comes_with_the_error(tmp_path):
+    import io
+    import urllib.error
+
+    from app.site_api import SiteApiError
+
+    def refuse(request, timeout):
+        raise urllib.error.HTTPError(
+            request.full_url,
+            400,
+            "Bad Request",
+            {},
+            io.BytesIO(b'{"detail": "too big"}'),
+        )
+
+    client = SiteApiClient("https://s", opener=refuse)
+    with pytest.raises(SiteApiError, match="too big") as raised:
+        client.upload_protocol("tok", "group", "x", document={"a": 1}, send_html=False)
+    assert raised.value.status == 400

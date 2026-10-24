@@ -23,7 +23,14 @@ Opener = Callable[..., Any]
 
 
 class SiteApiError(Exception):
-    """Any failure talking to the site (HTTP status, transport, or bad JSON)."""
+    """Any failure talking to the site (HTTP status, transport, or bad JSON).
+
+    ``status`` is the HTTP status when the site answered with one.
+    """
+
+    def __init__(self, message: str, status: int | None = None) -> None:
+        super().__init__(message)
+        self.status = status
 
 
 @dataclass
@@ -72,7 +79,9 @@ class SiteApiClient:
                     raise SiteApiError(f"HTTP {status} from {url}")
                 return resp.read()
         except urllib.error.HTTPError as exc:
-            raise SiteApiError(f"HTTP {exc.code}: {exc.reason}") from exc
+            raise SiteApiError(
+                f"HTTP {exc.code}: {_detail(exc)}", status=exc.code
+            ) from exc
         except urllib.error.URLError as exc:
             raise SiteApiError(f"Connection error: {exc.reason}") from exc
 
@@ -175,6 +184,14 @@ class SiteApiClient:
         )
         data = self._read_json(request)
         return int(data.get("count", len(stats)))
+
+
+def _detail(exc: urllib.error.HTTPError) -> str:
+    """The site's own reason for a refusal, when it gave one."""
+    try:
+        return str(json.loads(exc.read().decode("utf-8")).get("detail") or exc.reason)
+    except ValueError, AttributeError, TypeError, OSError:
+        return str(exc.reason)
 
 
 def _multipart(
