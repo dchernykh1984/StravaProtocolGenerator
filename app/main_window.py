@@ -47,6 +47,7 @@ from app.backup import (
 )
 from app.config import (
     FIRST_SECTION,
+    LAST_SECTION,
     AppConfig,
     CupConfig,
     DateRange,
@@ -88,7 +89,7 @@ _FILTER_TYPES = [f.value for f in FilterType]
 def _section_box(number: int) -> QSpinBox:
     """The number of the event's protocol section on the site to publish into."""
     box = QSpinBox()
-    box.setRange(FIRST_SECTION, 2_147_483_647)
+    box.setRange(FIRST_SECTION, LAST_SECTION)
     box.setValue(number)
     box.setToolTip(
         "The protocol section on the event's page on the site: 1 is the event's own;"

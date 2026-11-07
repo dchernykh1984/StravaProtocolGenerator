@@ -120,7 +120,7 @@ def test_a_stage_and_the_cup_keep_their_protocol_section() -> None:
 
 
 def test_a_section_that_is_not_a_number_of_one_or_more_is_the_first() -> None:
-    for value in ("x", None, 0, -3, [2]):
+    for value in ("x", None, 0, -3, [2], 2**31):
         assert StageConfig.from_dict({"section": value}).section == 1
     assert StageConfig.from_dict({"section": "4"}).section == 4
 

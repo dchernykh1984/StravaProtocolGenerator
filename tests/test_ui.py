@@ -405,6 +405,11 @@ def test_cup_file_fields_are_file_pickers() -> None:
     assert isinstance(panel.group_file, mw.FilePicker)
 
 
+def test_a_section_from_a_hand_edited_file_opens_as_the_first() -> None:
+    stage = StageConfig.from_dict({"section": 2**40})
+    assert mw.StageTab(stage).to_config().section == 1
+
+
 def test_cup_fields_survive_combined_rows() -> None:
     cup = CupConfig(
         name="Grand Cup",

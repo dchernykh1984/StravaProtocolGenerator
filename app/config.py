@@ -18,6 +18,8 @@ from app.scoring import CupRule, StageRule
 # The section of protocols every event has on the site: a protocol that names no
 # section goes there.
 FIRST_SECTION = 1
+# The largest section number the site holds, and a spin box can show.
+LAST_SECTION = 2_147_483_647
 
 
 class HttpAction(StrEnum):
@@ -90,7 +92,7 @@ def _coerce_section(value: Any) -> int:
         number = int(value)
     except TypeError, ValueError:
         return FIRST_SECTION
-    return number if number >= FIRST_SECTION else FIRST_SECTION
+    return number if FIRST_SECTION <= number <= LAST_SECTION else FIRST_SECTION
 
 
 def _coerce_enum(enum: type[Any], value: Any, default: Any) -> Any:
