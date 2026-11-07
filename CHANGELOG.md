@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.0](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.3.1...v0.4.0) (2026-11-07)
+
+
+### Features
+
+* **site:** publish each stage's and the cup's protocols into a protocol section of the event on the site ([8ec3767](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/8ec376707cccfdf4d9269768a74babeddfc6e512))
+
+
+### Bug Fixes
+
+* **config:** a section number beyond what the site holds reads as the first, so the window still opens ([79df68e](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/79df68e2f686794dec2adcc47f89c8b7f400536f))
+* **site:** a delete the site refuses says what the site answered ([c4f2d5c](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/c4f2d5c37836afc17b02cb6c0d0889f0d0bab053))
+
 ## [0.3.1](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.3.0...v0.3.1) (2026-10-24)
 
 
