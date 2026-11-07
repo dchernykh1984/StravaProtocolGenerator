@@ -15,6 +15,10 @@ from typing import Any
 from app.models import RaceInfo
 from app.scoring import CupRule, StageRule
 
+# The section of protocols every event has on the site: a protocol that names no
+# section goes there.
+FIRST_SECTION = 1
+
 
 class HttpAction(StrEnum):
     """What to do with a protocol on the site (as in FinishProtocolGenerator)."""
@@ -80,6 +84,15 @@ def _coerce_action(value: Any) -> HttpAction:
         return HttpAction.NOTHING
 
 
+def _coerce_section(value: Any) -> int:
+    """A protocol section's number on the site; anything else is the first section."""
+    try:
+        number = int(value)
+    except TypeError, ValueError:
+        return FIRST_SECTION
+    return number if number >= FIRST_SECTION else FIRST_SECTION
+
+
 def _coerce_enum(enum: type[Any], value: Any, default: Any) -> Any:
     try:
         return enum(value)
@@ -135,6 +148,9 @@ class StageConfig:
     token: str = ""
     is_live: bool = True
     stage_label: str = ""
+    # The section of the event's protocols on the site to publish into: the first,
+    # the event's own, unless the organizer added another there and gave its number.
+    section: int = FIRST_SECTION
     absolute_action: HttpAction = HttpAction.NOTHING
     group_action: HttpAction = HttpAction.NOTHING
     absolute_file: str = ""
@@ -171,6 +187,7 @@ class StageConfig:
             "token": self.token,
             "is_live": self.is_live,
             "stage_label": self.stage_label,
+            "section": self.section,
             "absolute_action": self.absolute_action.value,
             "group_action": self.group_action.value,
             "absolute_file": self.absolute_file,
@@ -212,6 +229,7 @@ class StageConfig:
             token=d("token"),
             is_live=d("is_live"),
             stage_label=d("stage_label"),
+            section=_coerce_section(data.get("section")),
             absolute_action=_coerce_action(data.get("absolute_action")),
             group_action=_coerce_action(data.get("group_action")),
             absolute_file=d("absolute_file"),
@@ -252,6 +270,9 @@ class CupConfig:
     token: str = ""
     is_live: bool = True
     stage_label: str = ""
+    # The section of the event's protocols on the site to publish into: the first,
+    # the event's own, unless the organizer added another there and gave its number.
+    section: int = FIRST_SECTION
     absolute_action: HttpAction = HttpAction.NOTHING
     group_action: HttpAction = HttpAction.NOTHING
     absolute_file: str = ""
@@ -287,6 +308,7 @@ class CupConfig:
             "token": self.token,
             "is_live": self.is_live,
             "stage_label": self.stage_label,
+            "section": self.section,
             "absolute_action": self.absolute_action.value,
             "group_action": self.group_action.value,
             "absolute_file": self.absolute_file,
@@ -326,6 +348,7 @@ class CupConfig:
             token=d("token"),
             is_live=d("is_live"),
             stage_label=d("stage_label"),
+            section=_coerce_section(data.get("section")),
             absolute_action=_coerce_action(data.get("absolute_action")),
             group_action=_coerce_action(data.get("group_action")),
             absolute_file=d("absolute_file"),

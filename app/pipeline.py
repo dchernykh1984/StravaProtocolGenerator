@@ -17,6 +17,7 @@ from typing import Any, Protocol
 
 from app.applink import find_app_link
 from app.config import (
+    FIRST_SECTION,
     AppConfig,
     CupConfig,
     FilterType,
@@ -71,9 +72,12 @@ class SiteClient(Protocol):
         stage_label: str = ...,
         document: dict[str, Any] | None = ...,
         send_html: bool = ...,
+        section: int = ...,
     ) -> str: ...
 
-    def delete_protocol(self, token: str, protocol_type: str) -> None: ...
+    def delete_protocol(
+        self, token: str, protocol_type: str, section: int = ...
+    ) -> None: ...
 
 
 class SegmentStorage(Protocol):
@@ -261,8 +265,9 @@ def _publish(
     output: ProtocolOutput,
     document: dict[str, Any] | None = None,
     protocol_format: ProtocolFormat = ProtocolFormat.BOTH,
+    section: int = FIRST_SECTION,
 ) -> None:
-    """Apply a protocol's publish action, recording any failure on ``output``."""
+    """Apply a protocol's action in ``section``; a failure goes on ``output``."""
     if action is HttpAction.NOTHING or not token:
         return
     send = document if protocol_format is not ProtocolFormat.HTML else None
@@ -279,19 +284,26 @@ def _publish(
                     stage_label,
                     document=send,
                     send_html=send_html,
+                    section=section,
                 )
             except SiteApiError as exc:
                 if exc.status != 400 or send_html:
                     raise
                 # Data only, refused: publish the HTML rather than show nothing.
                 client.upload_protocol(
-                    token, protocol_type, path, is_live, stage_label, send_html=True
+                    token,
+                    protocol_type,
+                    path,
+                    is_live,
+                    stage_label,
+                    send_html=True,
+                    section=section,
                 )
                 refused = f"{exc}; the HTML was published instead"
             if refused:
                 output.warning = f"the site did not accept the protocol data: {refused}"
         else:
-            client.delete_protocol(token, protocol_type)
+            client.delete_protocol(token, protocol_type, section)
         output.published = action is HttpAction.UPLOAD
     except SiteApiError as exc:
         output.error = str(exc)
@@ -311,6 +323,7 @@ def _emit(
     stage_label: str,
     document: Callable[[], dict[str, Any]] | None = None,
     protocol_format: ProtocolFormat = ProtocolFormat.BOTH,
+    section: int = FIRST_SECTION,
 ) -> ProtocolOutput:
     """Write one protocol locally and, when publishing, push it to the site.
 
@@ -341,6 +354,7 @@ def _emit(
             output,
             built,
             protocol_format,
+            section,
         )
     return output
 
@@ -436,6 +450,7 @@ def _render_stage_outputs(
             stage.stage_label,
             stage_document(abs_groups, stage.show_group),
             config.protocol_format,
+            stage.section,
         ),
         _emit(
             writer,
@@ -451,6 +466,7 @@ def _render_stage_outputs(
             stage.stage_label,
             stage_document(grp_groups, False),
             config.protocol_format,
+            stage.section,
         ),
     ]
 
@@ -542,6 +558,7 @@ def _render_cup_outputs(
             cup.stage_label,
             cup_document(abs_groups, cup.show_group),
             config.protocol_format,
+            cup.section,
         ),
         _emit(
             writer,
@@ -557,6 +574,7 @@ def _render_cup_outputs(
             cup.stage_label,
             cup_document(grp_groups, False),
             config.protocol_format,
+            cup.section,
         ),
     ]
 

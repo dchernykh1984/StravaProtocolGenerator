@@ -109,6 +109,22 @@ def test_from_dict_defaults_missing_keys() -> None:
     assert isinstance(cfg.cup, CupConfig)
 
 
+def test_a_stage_and_the_cup_keep_their_protocol_section() -> None:
+    stage = StageConfig(section=3)
+    cup = CupConfig(section=2)
+    assert StageConfig.from_dict(stage.to_dict()).section == 3
+    assert CupConfig.from_dict(cup.to_dict()).section == 2
+    # A file saved before sections publishes into the event's own, the first.
+    assert StageConfig.from_dict({}).section == 1
+    assert CupConfig.from_dict({}).section == 1
+
+
+def test_a_section_that_is_not_a_number_of_one_or_more_is_the_first() -> None:
+    for value in ("x", None, 0, -3, [2]):
+        assert StageConfig.from_dict({"section": value}).section == 1
+    assert StageConfig.from_dict({"section": "4"}).section == 4
+
+
 def test_bad_http_action_falls_back_to_nothing() -> None:
     stage = StageConfig.from_dict({"absolute_action": "Garbage"})
     assert stage.absolute_action is HttpAction.NOTHING

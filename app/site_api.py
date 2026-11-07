@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from app.config import FIRST_SECTION
 from app.models import Category, Participant
 
 Opener = Callable[..., Any]
@@ -126,8 +127,9 @@ class SiteApiClient:
         stage_label: str = "",
         document: dict[str, Any] | None = None,
         send_html: bool = True,
+        section: int = FIRST_SECTION,
     ) -> str:
-        """Publish a protocol to the site as ``absolute`` or ``group``.
+        """Publish a protocol as ``absolute`` or ``group`` into the site's ``section``.
 
         Sends the HTML file (unless ``send_html`` is off) and, when given, the
         structured ``document`` in one request; the site then shows the document and
@@ -151,6 +153,7 @@ class SiteApiClient:
                 "protocol_type": protocol_type,
                 "is_live": "true" if is_live else "false",
                 "stage_label": stage_label,
+                "section": str(section),
             },
             files=files,
         )
@@ -162,10 +165,16 @@ class SiteApiClient:
         except ValueError, AttributeError, TypeError:
             return ""  # an older site, or an answer without JSON: the upload succeeded
 
-    def delete_protocol(self, token: str, protocol_type: str) -> None:
-        """Remove a published protocol so its live-broadcast link disappears."""
+    def delete_protocol(
+        self, token: str, protocol_type: str, section: int = FIRST_SECTION
+    ) -> None:
+        """Remove a published protocol of ``section`` so its link disappears."""
         body = urllib.parse.urlencode(
-            {"competition_token": token, "protocol_type": protocol_type}
+            {
+                "competition_token": token,
+                "protocol_type": protocol_type,
+                "section": str(section),
+            }
         ).encode()
         self._post(
             self.base_url + "/api/v1/protocols/delete/",
