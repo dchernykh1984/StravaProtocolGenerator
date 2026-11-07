@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.4.0...v0.4.1) (2026-11-07)
+
+
+### Bug Fixes
+
+* **ci:** restore the macos release asset, lost to a retired runner label ([f9ac1ba](https://github.com/dchernykh1984/StravaProtocolGenerator/commit/f9ac1ba0509b99facde036ef910d6aea7204d7fe))
+
 ## [0.4.0](https://github.com/dchernykh1984/StravaProtocolGenerator/compare/v0.3.1...v0.4.0) (2026-11-07)
 
 
