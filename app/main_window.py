@@ -46,6 +46,7 @@ from app.backup import (
     save_raw_data,
 )
 from app.config import (
+    FIRST_SECTION,
     AppConfig,
     CupConfig,
     DateRange,
@@ -82,6 +83,18 @@ _CUP_RULES = [r.value for r in CupRule]
 _DATE_RANGES = [d.value for d in DateRange]
 _GENDERS = [g.value for g in Gender]
 _FILTER_TYPES = [f.value for f in FilterType]
+
+
+def _section_box(number: int) -> QSpinBox:
+    """The number of the event's protocol section on the site to publish into."""
+    box = QSpinBox()
+    box.setRange(FIRST_SECTION, 2_147_483_647)
+    box.setValue(number)
+    box.setToolTip(
+        "The protocol section on the event's page on the site: 1 is the event's own;"
+        " the organizer adds the others there and shows their numbers"
+    )
+    return box
 
 
 def _combo(values: list[str], current: str) -> QComboBox:
@@ -407,6 +420,7 @@ class StageTab(QWidget):
         self.freeze_strava_data = QCheckBox("Freeze Strava data")
         self.freeze_strava_data.setChecked(stage.freeze_strava_data)
         self.stage_label = QLineEdit(stage.stage_label)
+        self.section = _section_box(stage.section)
         self.absolute_action = _combo(_ACTIONS, stage.absolute_action.value)
         self.group_action = _combo(_ACTIONS, stage.group_action.value)
         self.absolute_file = FilePicker(stage.absolute_file)
@@ -463,6 +477,7 @@ class StageTab(QWidget):
         self._form.addRow("Broadcast token (to Site URL)", self.token)
         self._form.addRow("", _checkbox_row(self.is_live, self.freeze_strava_data))
         self._form.addRow("Stage label", self.stage_label)
+        self._form.addRow("Protocol section", self.section)
         self._form.addRow("Absolute protocol", self.absolute_action)
         self._form.addRow("Group protocol", self.group_action)
         self._form.addRow("Absolute file", self.absolute_file)
@@ -515,6 +530,7 @@ class StageTab(QWidget):
             token=self.token.text().strip(),
             is_live=self.is_live.isChecked(),
             stage_label=self.stage_label.text(),
+            section=self.section.value(),
             absolute_action=HttpAction(self.absolute_action.currentText()),
             group_action=HttpAction(self.group_action.currentText()),
             absolute_file=self.absolute_file.text().strip(),
@@ -563,6 +579,7 @@ class CupPanel(QWidget):
         self.is_live = QCheckBox("Live broadcast")
         self.is_live.setChecked(cup.is_live)
         self.stage_label = QLineEdit(cup.stage_label)
+        self.section = _section_box(cup.section)
         self.absolute_action = _combo(_ACTIONS, cup.absolute_action.value)
         self.group_action = _combo(_ACTIONS, cup.group_action.value)
         self.absolute_file = FilePicker(cup.absolute_file)
@@ -609,6 +626,7 @@ class CupPanel(QWidget):
         form.addRow("Combine rule", self.rule)
         form.addRow("Overall token", _field_with_checkbox(self.token, self.is_live))
         form.addRow("Stage label", self.stage_label)
+        form.addRow("Protocol section", self.section)
         form.addRow("Absolute protocol", self.absolute_action)
         form.addRow("Group protocol", self.group_action)
         form.addRow("Absolute file", self.absolute_file)
@@ -653,6 +671,7 @@ class CupPanel(QWidget):
             token=self.token.text().strip(),
             is_live=self.is_live.isChecked(),
             stage_label=self.stage_label.text(),
+            section=self.section.value(),
             absolute_action=HttpAction(self.absolute_action.currentText()),
             group_action=HttpAction(self.group_action.currentText()),
             absolute_file=self.absolute_file.text().strip(),

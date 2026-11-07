@@ -106,6 +106,17 @@ def test_upload_protocol_sends_multipart(tmp_path) -> None:
     assert b"<html><body>ok</body></html>" in body
 
 
+def test_upload_protocol_names_its_section(tmp_path) -> None:
+    html = tmp_path / "prot.html"
+    html.write_text("<html></html>", encoding="utf-8")
+    client, opener = _client(_FakeResp(b"{}", status=200))
+    client.upload_protocol("tok", "group", str(html))
+    client.upload_protocol("tok", "group", str(html), section=4)
+    first, fourth = (request.data for request in opener.requests)
+    assert b'name="section"\r\n\r\n1\r\n' in first
+    assert b'name="section"\r\n\r\n4\r\n' in fourth
+
+
 def test_upload_protocol_missing_file_raises(tmp_path) -> None:
     client, _ = _client(_FakeResp(status=201))
     with pytest.raises(SiteApiError, match="File not found"):
@@ -136,6 +147,13 @@ def test_delete_protocol_posts_form() -> None:
     assert request.full_url.endswith("/api/v1/protocols/delete/")
     assert b"competition_token=tok" in request.data
     assert b"protocol_type=group" in request.data
+    assert b"section=1" in request.data
+
+
+def test_delete_protocol_names_its_section() -> None:
+    client, opener = _client(_FakeResp(status=200))
+    client.delete_protocol("tok", "absolute", 5)
+    assert b"section=5" in opener.requests[0].data
 
 
 def test_upload_live_stats_returns_count() -> None:

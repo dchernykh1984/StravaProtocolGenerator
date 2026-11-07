@@ -29,6 +29,10 @@ protocols -> optionally publish them back to the site.
 - The roster read and the protocol publish use the same cycling-site REST API as the
   other referee tools (competition id plus token). Re-publishing with the same
   competition overwrites; there is no separate edit call.
+- Each stage and the cup carry `section`, the number of the event's protocol section
+  on the site (cycling-site #452), sent with every upload and delete; 1 is the event's
+  own and what an old config reads as. The site keeps one protocol of each type per
+  section and refuses a section the event does not have.
 - A protocol goes as HTML, as structured data the site draws itself
   (`app/protocol_document.py`, schema copy in `tests/fixtures/protocol-document-v1.json`
   from the site's `protocols/schema/`), or both (`AppConfig.protocol_format`, default

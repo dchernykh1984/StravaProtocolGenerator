@@ -135,6 +135,7 @@ def test_two_column_stage_keeps_all_fields() -> None:
         date_to="2026-08-02",
         token="bcast",
         stage_label="D7",
+        section=3,
         absolute_file="abs.html",
         group_file="grp.html",
         cup_column_label="col",
@@ -148,6 +149,7 @@ def test_two_column_stage_keeps_all_fields() -> None:
     assert config.date_to == "2026-08-02"
     assert config.token == "bcast"
     assert config.stage_label == "D7"
+    assert config.section == 3
     assert config.absolute_file == "abs.html"
     assert config.group_file == "grp.html"
     assert config.cup_column_label == "col"
@@ -409,6 +411,7 @@ def test_cup_fields_survive_combined_rows() -> None:
         token="cup-tok",
         is_live=False,
         stage_label="GC",
+        section=2,
         place_label="Pos",
         name_label="Rider",
         total_label="Sum",
@@ -420,6 +423,7 @@ def test_cup_fields_survive_combined_rows() -> None:
     assert result.token == "cup-tok"
     assert result.is_live is False
     assert result.stage_label == "GC"
+    assert result.section == 2
     assert result.place_label == "Pos"
     assert result.name_label == "Rider"
     assert result.total_label == "Sum"

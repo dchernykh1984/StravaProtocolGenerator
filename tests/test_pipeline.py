@@ -1,7 +1,14 @@
 """End-to-end pipeline tests with a fake leaderboard source and fake site client."""
 
 from app import paths
-from app.config import AppConfig, CupConfig, HttpAction, SegmentConfig, StageConfig
+from app.config import (
+    AppConfig,
+    CupConfig,
+    HttpAction,
+    ProtocolFormat,
+    SegmentConfig,
+    StageConfig,
+)
 from app.models import Category, LeaderboardRow, Participant
 from app.pipeline import generate, generate_from_snapshot
 from app.site_api import ParticipantsResponse, SiteApiError
@@ -69,6 +76,8 @@ class _FakeClient:
         self._fail = fail
         self.uploads: list[tuple[str, str, str]] = []
         self.deletes: list[tuple[str, str]] = []
+        # (upload or delete, token, type, section) for every call
+        self.calls: list[tuple[str, str, str, int]] = []
         self.sent: list[tuple[str, dict | None, bool]] = []
         self.refuse = ""
 
@@ -86,13 +95,16 @@ class _FakeClient:
         stage_label: str = "",
         document: dict | None = None,
         send_html: bool = True,
+        section: int = 1,
     ) -> str:
         self.uploads.append((token, protocol_type, html_path))
+        self.calls.append(("upload", token, protocol_type, section))
         self.sent.append((protocol_type, document, send_html))
         return self.refuse
 
-    def delete_protocol(self, token: str, protocol_type: str) -> None:
+    def delete_protocol(self, token: str, protocol_type: str, section: int = 1) -> None:
         self.deletes.append((token, protocol_type))
+        self.calls.append(("delete", token, protocol_type, section))
 
 
 def _roster() -> ParticipantsResponse:
@@ -401,6 +413,40 @@ def test_generate_publishes_per_action() -> None:
     assert ("cup-tok", "absolute") in [(t, p) for t, p, _ in client.uploads]
     assert ("cup-tok", "group") in client.deletes
     assert len(client.uploads) == 2
+
+
+def test_each_stage_and_the_cup_publish_into_their_own_section() -> None:
+    cfg = _config()
+    cfg.stages[0].section = 3
+    cfg.cup.section = 2
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
+    client = _FakeClient(_roster())
+    generate(cfg, browser, client, writer=_capture_writer({}))
+    assert sorted(client.calls) == [
+        ("delete", "cup-tok", "group", 2),
+        ("upload", "cup-tok", "absolute", 2),
+        ("upload", "stage1-tok", "absolute", 3),
+    ]
+
+
+def test_the_html_sent_after_refused_data_goes_to_the_same_section() -> None:
+    class _RefusesData(_FakeClient):
+        def upload_protocol(  # type: ignore[override]
+            self, token, protocol_type, html_path, *args, send_html=True, section=1, **k
+        ) -> str:
+            self.calls.append(("upload", token, protocol_type, section))
+            if not send_html:
+                raise SiteApiError("HTTP 400: too big", status=400)
+            return ""
+
+    cfg = _config()
+    cfg.protocol_format = ProtocolFormat.DATA
+    cfg.stages[0].section = 3
+    browser = _FakeLeaderboard({"seg1": _row("111", "Ivan Petrov", "5:00")})
+    client = _RefusesData(_roster())
+    generate(cfg, browser, client, writer=_capture_writer({}))
+    stage = [call for call in client.calls if call[1] == "stage1-tok"]
+    assert stage == [("upload", "stage1-tok", "absolute", 3)] * 2
 
 
 def test_generate_no_publish_when_disabled() -> None:

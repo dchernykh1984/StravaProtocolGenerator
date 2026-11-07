@@ -130,6 +130,12 @@ token), and configure the stages and the cup, then generate.
   configurable, and the cup shows one "lap" column per stage plus a total.
 - **Publishing** -- each protocol has its own action (Nothing / Upload / Delete) to
   the relevant token (per-stage broadcast token, or the overall token for the cup).
+  **Protocol section** (each stage and the cup) is the number of the section of the
+  event's protocols on the site to publish into, so every stage and the cup can share
+  one event, each under a heading of its own: 1 is the event's own section; the
+  organizer adds the others on the site (the event page's timing-token block, "Protocol
+  sections") and each shows its number. A number the event does not have is refused by
+  the site, and the error says so. It needs cycling-site after its #452.
   There is no FTP; a local HTML copy is always written. **Send protocols to the site
   as** chooses `HTML + Data` (default: the site shows the results in its own look on
   phones and desktops, with the HTML kept as the original), `HTML` or `Data`. The data

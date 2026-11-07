@@ -112,11 +112,12 @@ class _Client:
         stage_label="",
         document=None,
         send_html=True,
+        section=1,
     ) -> str:
         self.sent.append((token, protocol_type, document, send_html))
         return self.refuse
 
-    def delete_protocol(self, token, protocol_type) -> None:
+    def delete_protocol(self, token, protocol_type, section=1) -> None:
         pass
 
 
@@ -557,6 +558,7 @@ def test_refused_data_only_publishes_the_html_instead():
             stage_label="",
             document=None,
             send_html=True,
+            section=1,
         ) -> str:
             self.sent.append((token, protocol_type, document, send_html))
             if not send_html:
