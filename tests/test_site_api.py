@@ -1,5 +1,6 @@
 """Tests for the cycling-site API client, driven by a fake network opener."""
 
+import io
 import json
 import urllib.error
 from typing import Any
@@ -148,6 +149,15 @@ def test_delete_protocol_posts_form() -> None:
     assert b"competition_token=tok" in request.data
     assert b"protocol_type=group" in request.data
     assert b"section=1" in request.data
+
+
+def test_a_refused_delete_says_what_the_site_answered() -> None:
+    body = io.BytesIO(b'{"detail": "The event has no protocol section 7"}')
+    err = urllib.error.HTTPError("u", 400, "Bad Request", {}, body)  # type: ignore[arg-type]
+    client, _ = _client(err)
+    with pytest.raises(SiteApiError, match="no protocol section 7") as raised:
+        client.delete_protocol("tok", "group", 7)
+    assert raised.value.status == 400
 
 
 def test_delete_protocol_names_its_section() -> None:

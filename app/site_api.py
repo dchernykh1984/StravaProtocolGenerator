@@ -97,7 +97,9 @@ class SiteApiClient:
                     raise SiteApiError(f"HTTP {status} from {url}")
                 return status
         except urllib.error.HTTPError as exc:
-            raise SiteApiError(f"HTTP {exc.code}: {exc.reason}") from exc
+            raise SiteApiError(
+                f"HTTP {exc.code}: {_detail(exc)}", status=exc.code
+            ) from exc
         except urllib.error.URLError as exc:
             raise SiteApiError(f"Connection error: {exc.reason}") from exc
 
